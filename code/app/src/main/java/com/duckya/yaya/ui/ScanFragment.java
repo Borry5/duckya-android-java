@@ -90,6 +90,7 @@ public class ScanFragment extends Fragment {
         mediaAdapter = new MediaGridAdapter(item ->
                 PreviewBottomSheet.newInstance(item).show(getParentFragmentManager(), "preview"));
         mediaRecycler.setLayoutManager(new GridLayoutManager(requireContext(), 3));
+        mediaRecycler.setNestedScrollingEnabled(false);
         mediaRecycler.setAdapter(mediaAdapter);
 
         primaryButton.setOnClickListener(v -> {
