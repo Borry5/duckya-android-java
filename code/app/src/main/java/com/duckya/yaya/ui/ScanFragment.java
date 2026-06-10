@@ -212,17 +212,17 @@ public class ScanFragment extends Fragment {
         }
         setSelectionMode(false);
         headerStatusText = getString(R.string.scan_scanning);
-        headerDetailText = "";
+        headerDetailText = getString(R.string.scan_progress_detail, 0, 0);
         headerPrimaryEnabled = false;
         setFilterControlsEnabled(false);
-        updateProgress(0);
+        updateProgress(1);
         headerDoneVisible = false;
         renderHeader();
 
         Context appContext = requireContext().getApplicationContext();
         scanExecutor.execute(() -> {
             try {
-                List<MediaItemInfo> items = scanner.scan(appContext);
+                List<MediaItemInfo> items = scanner.scan(appContext, this::postScanProgress);
                 scanCache.save(appContext, items);
                 if (!isAdded()) {
                     return;
@@ -306,7 +306,7 @@ public class ScanFragment extends Fragment {
         }
         Collections.sort(visibleItems, comparatorFor(sortMode));
         mediaAdapter.submitList(visibleItems);
-        mediaAdapter.setSelectionState(selectionMode, selectedUris);
+        mediaAdapter.setSelectionMode(selectionMode, selectedUris);
         headerMediaCountText = getString(R.string.scan_item_count, visibleItems.size());
         updateFilterButtonState();
         renderHeader();
@@ -409,10 +409,10 @@ public class ScanFragment extends Fragment {
         if (!enabled) {
             selectedUris.clear();
         }
-        if (mediaAdapter != null) {
-            mediaAdapter.setSelectionState(selectionMode, selectedUris);
-        }
         renderHeader();
+        if (mediaAdapter != null) {
+            mediaAdapter.setSelectionMode(selectionMode, selectedUris);
+        }
     }
 
     private void toggleSelection(MediaItemInfo item) {
@@ -423,9 +423,23 @@ public class ScanFragment extends Fragment {
             selectedUris.add(uri);
         }
         if (mediaAdapter != null) {
-            mediaAdapter.setSelectionState(selectionMode, selectedUris);
+            mediaAdapter.notifySelectionChanged(uri);
         }
         renderHeader();
+    }
+
+    private void postScanProgress(int progress, int scannedCount, int totalCount) {
+        if (!isAdded()) {
+            return;
+        }
+        requireActivity().runOnUiThread(() -> {
+            if (mediaAdapter == null) {
+                return;
+            }
+            headerStatusText = getString(R.string.scan_scanning);
+            headerDetailText = getString(R.string.scan_progress_detail, scannedCount, totalCount);
+            updateProgress(progress);
+        });
     }
 
     private void addSelectedToQueue(QueueAction action) {

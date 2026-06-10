@@ -4,6 +4,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -25,6 +26,8 @@ import java.util.Set;
 public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public static final int VIEW_TYPE_HEADER = 0;
     public static final int VIEW_TYPE_MEDIA = 1;
+    private static final String PAYLOAD_HEADER = "payload_header";
+    private static final String PAYLOAD_SELECTION = "payload_selection";
 
     public interface Listener {
         void onMediaClick(MediaItemInfo item);
@@ -54,6 +57,7 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
     public MediaGridAdapter(Listener listener) {
         this.listener = listener;
+        setHasStableIds(true);
     }
 
     public void submitList(List<MediaItemInfo> newItems) {
@@ -64,19 +68,36 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
     public void setHeaderState(HeaderState state) {
         headerState = state;
-        notifyItemChanged(0);
+        notifyItemChanged(0, PAYLOAD_HEADER);
     }
 
-    // 接收 Fragment 中维护的选择状态，刷新网格里的勾选标记。
-    public void setSelectionState(boolean selectionMode, Set<String> selectedUris) {
+    // 选择模式变化时只局部刷新勾选控件，避免缩略图整屏重载。
+    public void setSelectionMode(boolean selectionMode, Set<String> selectedUris) {
         this.selectionMode = selectionMode;
         this.selectedUris = selectedUris;
-        notifyDataSetChanged();
+        if (!items.isEmpty()) {
+            notifyItemRangeChanged(1, items.size(), PAYLOAD_SELECTION);
+        }
+    }
+
+    public void notifySelectionChanged(String uriText) {
+        int adapterPosition = adapterPositionForUri(uriText);
+        if (adapterPosition >= 1) {
+            notifyItemChanged(adapterPosition, PAYLOAD_SELECTION);
+        }
     }
 
     @Override
     public int getItemViewType(int position) {
         return position == 0 ? VIEW_TYPE_HEADER : VIEW_TYPE_MEDIA;
+    }
+
+    @Override
+    public long getItemId(int position) {
+        if (position == 0) {
+            return Long.MIN_VALUE;
+        }
+        return items.get(position - 1).getUri().toString().hashCode() & 0xffffffffL;
     }
 
     @NonNull
@@ -99,20 +120,36 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
         MediaViewHolder mediaHolder = (MediaViewHolder) holder;
         MediaItemInfo item = items.get(position - 1);
-        boolean selected = selectedUris != null && selectedUris.contains(item.getUri().toString());
         mediaHolder.sizeBadge.setText(FormatUtils.formatSize(item.getSizeBytes()));
         mediaHolder.kindBadge.setText(item.getKind() == MediaKind.VIDEO
                 ? formatDuration(item.getDurationMs())
                 : formatMegapixels(item.getWidth(), item.getHeight()));
-        mediaHolder.selectionBadge.setVisibility(selectionMode ? View.VISIBLE : View.GONE);
-        mediaHolder.selectionBadge.setText(selected ? "✓" : "○");
-        mediaHolder.itemView.setAlpha(!selectionMode || selected ? 1.0f : 0.72f);
+        updateSelectionUi(mediaHolder, item);
         ThumbnailLoader.loadInto(mediaHolder.thumbnail.getContext(), item, mediaHolder.thumbnail);
         mediaHolder.itemView.setOnClickListener(v -> listener.onMediaClick(item));
         mediaHolder.itemView.setOnLongClickListener(v -> {
             listener.onMediaLongClick(item, v);
             return true;
         });
+    }
+
+    @Override
+    public void onBindViewHolder(
+            @NonNull RecyclerView.ViewHolder holder,
+            int position,
+            @NonNull List<Object> payloads
+    ) {
+        if (payloads.isEmpty()) {
+            super.onBindViewHolder(holder, position, payloads);
+            return;
+        }
+        if (holder instanceof HeaderViewHolder) {
+            ((HeaderViewHolder) holder).bind(headerState, listener);
+            return;
+        }
+        if (position > 0 && holder instanceof MediaViewHolder) {
+            updateSelectionUi((MediaViewHolder) holder, items.get(position - 1));
+        }
     }
 
     @Override
@@ -135,11 +172,27 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         return String.format(Locale.getDefault(), "%d:%02d", minutes, seconds);
     }
 
+    private void updateSelectionUi(MediaViewHolder holder, MediaItemInfo item) {
+        boolean selected = selectedUris != null && selectedUris.contains(item.getUri().toString());
+        holder.selectionBadge.setVisibility(selectionMode ? View.VISIBLE : View.GONE);
+        holder.selectionBadge.setChecked(selected);
+        holder.itemView.setAlpha(!selectionMode || selected ? 1.0f : 0.72f);
+    }
+
+    private int adapterPositionForUri(String uriText) {
+        for (int i = 0; i < items.size(); i++) {
+            if (items.get(i).getUri().toString().equals(uriText)) {
+                return i + 1;
+            }
+        }
+        return RecyclerView.NO_POSITION;
+    }
+
     static class MediaViewHolder extends RecyclerView.ViewHolder {
         final ImageView thumbnail;
         final TextView kindBadge;
         final TextView sizeBadge;
-        final TextView selectionBadge;
+        final CheckBox selectionBadge;
 
         MediaViewHolder(@NonNull View itemView) {
             super(itemView);

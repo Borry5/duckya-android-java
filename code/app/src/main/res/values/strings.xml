@@ -19,6 +19,7 @@
     <string name="scan_video_count">视频 %1$d 项</string>
     <string name="scan_total_size">总大小 %1$s</string>
     <string name="scan_progress_title">相册读取进度</string>
+    <string name="scan_progress_detail">已读取 %1$d / %2$d 项</string>
     <string name="scan_completed">已完成</string>
     <string name="scan_tap_preview_hint">点按可放大查看</string>
     <string name="scan_hide_name_hint">不显示文件名和拍摄时间</string>

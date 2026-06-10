@@ -51,17 +51,15 @@
         app:layout_constraintBottom_toBottomOf="@id/media_thumbnail"
         app:layout_constraintEnd_toEndOf="@id/media_thumbnail" />
 
-    <TextView
+    <CheckBox
         android:id="@+id/media_selection_badge"
         android:layout_width="32dp"
         android:layout_height="32dp"
         android:layout_margin="6dp"
-        android:background="@drawable/bg_badge"
+        android:buttonTint="@color/yaya_primary"
+        android:clickable="false"
+        android:focusable="false"
         android:gravity="center"
-        android:text="○"
-        android:textColor="@color/yaya_text_primary"
-        android:textSize="22sp"
-        android:textStyle="bold"
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="@id/media_thumbnail"
         app:layout_constraintTop_toTopOf="@id/media_thumbnail" />
