@@ -23,6 +23,14 @@
     <string name="scan_tap_preview_hint">点按可放大查看</string>
     <string name="scan_hide_name_hint">不显示文件名和拍摄时间</string>
     <string name="scan_item_count">%1$d 项</string>
+    <string name="scan_select">选择</string>
+    <string name="scan_selection_done">完成</string>
+    <string name="scan_selection_count">已选 %1$d 项</string>
+    <string name="scan_selection_compress">压缩</string>
+    <string name="scan_selection_delete">删除</string>
+    <string name="scan_cached_loaded">已加载上次扫描结果</string>
+    <string name="scan_selected_added_compress">已添加 %1$d 项到压缩队列</string>
+    <string name="scan_selected_added_delete">已添加 %1$d 项到删除队列</string>
     <string name="filter_title">筛选</string>
     <string name="filter_resource_type">资源类型</string>
     <string name="filter_display_options">显示选项</string>

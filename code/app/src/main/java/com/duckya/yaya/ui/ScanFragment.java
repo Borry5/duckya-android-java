@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 import android.widget.PopupMenu;
 import android.widget.RadioGroup;
 import android.widget.Switch;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -27,14 +28,17 @@ import com.duckya.yaya.model.MediaItemInfo;
 import com.duckya.yaya.model.MediaKind;
 import com.duckya.yaya.model.QueueAction;
 import com.duckya.yaya.queue.QueueManager;
+import com.duckya.yaya.util.MediaScanCache;
 import com.duckya.yaya.util.MediaStoreScanner;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -45,10 +49,13 @@ public class ScanFragment extends Fragment {
     private MediaGridAdapter mediaAdapter;
     private ExecutorService scanExecutor;
     private final MediaStoreScanner scanner = new MediaStoreScanner();
+    private final MediaScanCache scanCache = new MediaScanCache();
     private final List<MediaItemInfo> allItems = new ArrayList<>();
+    private final Set<String> selectedUris = new HashSet<>();
     private FilterMode filterMode = FilterMode.ALL;
     private SortMode sortMode = SortMode.SIZE;
     private boolean hideCompressedOutput;
+    private boolean selectionMode;
     private String headerStatusText = "";
     private String headerDetailText = "";
     private String headerPrimaryButtonText = "";
@@ -80,12 +87,20 @@ public class ScanFragment extends Fragment {
         mediaAdapter = new MediaGridAdapter(new MediaGridAdapter.Listener() {
             @Override
             public void onMediaClick(MediaItemInfo item) {
-                PreviewBottomSheet.newInstance(item).show(getParentFragmentManager(), "preview");
+                if (selectionMode) {
+                    toggleSelection(item);
+                } else {
+                    PreviewBottomSheet.newInstance(item).show(getParentFragmentManager(), "preview");
+                }
             }
 
             @Override
             public void onMediaLongClick(MediaItemInfo item, View anchor) {
-                showMediaActionMenu(item, anchor);
+                if (selectionMode) {
+                    toggleSelection(item);
+                } else {
+                    showMediaActionMenu(item, anchor);
+                }
             }
 
             @Override
@@ -106,6 +121,26 @@ public class ScanFragment extends Fragment {
             public void onSortClick(View anchor) {
                 showSortMenu(anchor);
             }
+
+            @Override
+            public void onSelectModeClick() {
+                setSelectionMode(true);
+            }
+
+            @Override
+            public void onSelectionDoneClick() {
+                setSelectionMode(false);
+            }
+
+            @Override
+            public void onSelectionCompressClick() {
+                addSelectedToQueue(QueueAction.COMPRESS);
+            }
+
+            @Override
+            public void onSelectionDeleteClick() {
+                addSelectedToQueue(QueueAction.DELETE);
+            }
         });
         GridLayoutManager layoutManager = new GridLayoutManager(requireContext(), 3);
         layoutManager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
@@ -123,7 +158,7 @@ public class ScanFragment extends Fragment {
 
         if (hasAllMediaPermissions(requireContext())) {
             showReadyState();
-            startScan();
+            showCachedResultOrScan();
         } else {
             showPermissionState();
         }
@@ -146,16 +181,36 @@ public class ScanFragment extends Fragment {
         }
         if (granted) {
             showReadyState();
-            startScan();
+            showCachedResultOrScan();
         } else {
             showPermissionState();
         }
+    }
+
+    private void showCachedResultOrScan() {
+        List<MediaItemInfo> cachedItems = scanCache.load(requireContext().getApplicationContext());
+        if (cachedItems.isEmpty()) {
+            startScan();
+            return;
+        }
+        // 有缓存时直接渲染上次结果，避免从队列页返回后重复触发 MediaStore 扫描。
+        allItems.clear();
+        allItems.addAll(cachedItems);
+        headerStatusText = getString(R.string.scan_cached_loaded);
+        headerDetailText = getString(R.string.scan_total_count, cachedItems.size());
+        headerPrimaryButtonText = getString(R.string.scan_rescan);
+        headerPrimaryEnabled = true;
+        headerDoneVisible = true;
+        updateProgress(100);
+        setFilterControlsEnabled(true);
+        applyFilterAndSort();
     }
 
     private void startScan() {
         if (scanExecutor == null || mediaAdapter == null) {
             return;
         }
+        setSelectionMode(false);
         headerStatusText = getString(R.string.scan_scanning);
         headerDetailText = "";
         headerPrimaryEnabled = false;
@@ -168,6 +223,10 @@ public class ScanFragment extends Fragment {
         scanExecutor.execute(() -> {
             try {
                 List<MediaItemInfo> items = scanner.scan(appContext);
+                scanCache.save(appContext, items);
+                if (!isAdded()) {
+                    return;
+                }
                 requireActivity().runOnUiThread(() -> {
                     allItems.clear();
                     allItems.addAll(items);
@@ -176,6 +235,9 @@ public class ScanFragment extends Fragment {
                 });
             } catch (Exception e) {
                 String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                if (!isAdded()) {
+                    return;
+                }
                 requireActivity().runOnUiThread(() -> showScanError(message));
             }
         });
@@ -244,6 +306,7 @@ public class ScanFragment extends Fragment {
         }
         Collections.sort(visibleItems, comparatorFor(sortMode));
         mediaAdapter.submitList(visibleItems);
+        mediaAdapter.setSelectionState(selectionMode, selectedUris);
         headerMediaCountText = getString(R.string.scan_item_count, visibleItems.size());
         updateFilterButtonState();
         renderHeader();
@@ -341,6 +404,55 @@ public class ScanFragment extends Fragment {
         menu.show();
     }
 
+    private void setSelectionMode(boolean enabled) {
+        selectionMode = enabled;
+        if (!enabled) {
+            selectedUris.clear();
+        }
+        if (mediaAdapter != null) {
+            mediaAdapter.setSelectionState(selectionMode, selectedUris);
+        }
+        renderHeader();
+    }
+
+    private void toggleSelection(MediaItemInfo item) {
+        String uri = item.getUri().toString();
+        if (selectedUris.contains(uri)) {
+            selectedUris.remove(uri);
+        } else {
+            selectedUris.add(uri);
+        }
+        if (mediaAdapter != null) {
+            mediaAdapter.setSelectionState(selectionMode, selectedUris);
+        }
+        renderHeader();
+    }
+
+    private void addSelectedToQueue(QueueAction action) {
+        List<MediaItemInfo> selectedItems = selectedItems();
+        for (MediaItemInfo item : selectedItems) {
+            QueueManager.getInstance().addTask(item, action);
+        }
+        int count = selectedItems.size();
+        if (count > 0) {
+            int messageId = action == QueueAction.DELETE
+                    ? R.string.scan_selected_added_delete
+                    : R.string.scan_selected_added_compress;
+            Toast.makeText(requireContext(), getString(messageId, count), Toast.LENGTH_SHORT).show();
+        }
+        setSelectionMode(false);
+    }
+
+    private List<MediaItemInfo> selectedItems() {
+        List<MediaItemInfo> selectedItems = new ArrayList<>();
+        for (MediaItemInfo item : allItems) {
+            if (selectedUris.contains(item.getUri().toString())) {
+                selectedItems.add(item);
+            }
+        }
+        return selectedItems;
+    }
+
     private void showSortMenu(View anchor) {
         PopupMenu menu = new PopupMenu(requireContext(), anchor);
         menu.inflate(R.menu.sort_menu);
@@ -395,17 +507,22 @@ public class ScanFragment extends Fragment {
             return;
         }
         boolean filtered = filterMode != FilterMode.ALL || hideCompressedOutput;
+        String mediaCountText = selectionMode
+                ? getString(R.string.scan_selection_count, selectedUris.size())
+                : headerMediaCountText;
         mediaAdapter.setHeaderState(new MediaGridAdapter.HeaderState(
                 headerStatusText,
                 headerDetailText,
                 headerPrimaryButtonText,
                 headerSortButtonText,
-                headerMediaCountText,
+                mediaCountText,
                 headerProgress,
                 headerDoneVisible,
                 headerPrimaryEnabled,
                 headerControlsEnabled,
-                filtered
+                filtered,
+                selectionMode,
+                selectedUris.size()
         ));
     }
 
