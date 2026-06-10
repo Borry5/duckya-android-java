@@ -9,12 +9,9 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.PopupMenu;
-import android.widget.ProgressBar;
 import android.widget.RadioGroup;
 import android.widget.Switch;
-import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -43,15 +40,6 @@ public class ScanFragment extends Fragment {
     private enum FilterMode { ALL, IMAGE, VIDEO }
     private enum SortMode { SIZE, BITRATE, CAPTURE_TIME, ADDED_TIME }
 
-    private TextView statusText;
-    private TextView detailText;
-    private TextView doneText;
-    private TextView progressPercentText;
-    private TextView mediaCountText;
-    private ProgressBar progressBar;
-    private Button primaryButton;
-    private Button filterButton;
-    private Button sortButton;
     private MediaGridAdapter mediaAdapter;
     private ExecutorService scanExecutor;
     private final MediaStoreScanner scanner = new MediaStoreScanner();
@@ -59,6 +47,15 @@ public class ScanFragment extends Fragment {
     private FilterMode filterMode = FilterMode.ALL;
     private SortMode sortMode = SortMode.SIZE;
     private boolean hideCompressedOutput;
+    private String headerStatusText = "";
+    private String headerDetailText = "";
+    private String headerPrimaryButtonText = "";
+    private String headerSortButtonText = "";
+    private String headerMediaCountText = "";
+    private int headerProgress = 0;
+    private boolean headerDoneVisible;
+    private boolean headerPrimaryEnabled;
+    private boolean headerControlsEnabled;
 
     private final ActivityResultLauncher<String[]> permissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), this::onPermissionResult);
@@ -76,32 +73,43 @@ public class ScanFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        statusText = view.findViewById(R.id.scan_status_text);
-        detailText = view.findViewById(R.id.scan_detail_text);
-        doneText = view.findViewById(R.id.scan_done_text);
-        progressPercentText = view.findViewById(R.id.scan_progress_percent_text);
-        mediaCountText = view.findViewById(R.id.media_count_text);
-        progressBar = view.findViewById(R.id.scan_progress_bar);
-        primaryButton = view.findViewById(R.id.scan_primary_button);
-        filterButton = view.findViewById(R.id.filter_button);
-        sortButton = view.findViewById(R.id.sort_button);
         RecyclerView mediaRecycler = view.findViewById(R.id.media_recycler);
         scanExecutor = Executors.newSingleThreadExecutor();
-        mediaAdapter = new MediaGridAdapter(item ->
-                PreviewBottomSheet.newInstance(item).show(getParentFragmentManager(), "preview"));
-        mediaRecycler.setLayoutManager(new GridLayoutManager(requireContext(), 3));
-        mediaRecycler.setNestedScrollingEnabled(false);
-        mediaRecycler.setAdapter(mediaAdapter);
+        mediaAdapter = new MediaGridAdapter(new MediaGridAdapter.Listener() {
+            @Override
+            public void onMediaClick(MediaItemInfo item) {
+                PreviewBottomSheet.newInstance(item).show(getParentFragmentManager(), "preview");
+            }
 
-        primaryButton.setOnClickListener(v -> {
-            if (hasAllMediaPermissions(requireContext())) {
-                startScan();
-            } else {
-                permissionLauncher.launch(requiredPermissions());
+            @Override
+            public void onPrimaryActionClick() {
+                if (hasAllMediaPermissions(requireContext())) {
+                    startScan();
+                } else {
+                    permissionLauncher.launch(requiredPermissions());
+                }
+            }
+
+            @Override
+            public void onFilterClick() {
+                showFilterSheet();
+            }
+
+            @Override
+            public void onSortClick(View anchor) {
+                showSortMenu(anchor);
             }
         });
-        filterButton.setOnClickListener(v -> showFilterSheet());
-        sortButton.setOnClickListener(v -> showSortMenu());
+        GridLayoutManager layoutManager = new GridLayoutManager(requireContext(), 3);
+        layoutManager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+            @Override
+            public int getSpanSize(int position) {
+                return mediaAdapter.getItemViewType(position) == MediaGridAdapter.VIEW_TYPE_HEADER ? 3 : 1;
+            }
+        });
+        mediaRecycler.setLayoutManager(layoutManager);
+        mediaRecycler.setAdapter(mediaAdapter);
+
         setFilterControlsEnabled(false);
         updateProgress(0);
         updateSortButtonText();
@@ -121,15 +129,6 @@ public class ScanFragment extends Fragment {
             scanExecutor.shutdownNow();
             scanExecutor = null;
         }
-        statusText = null;
-        detailText = null;
-        doneText = null;
-        progressPercentText = null;
-        mediaCountText = null;
-        progressBar = null;
-        primaryButton = null;
-        filterButton = null;
-        sortButton = null;
         mediaAdapter = null;
     }
 
@@ -147,17 +146,16 @@ public class ScanFragment extends Fragment {
     }
 
     private void startScan() {
-        if (scanExecutor == null || statusText == null || detailText == null || primaryButton == null) {
+        if (scanExecutor == null || mediaAdapter == null) {
             return;
         }
-        statusText.setText(R.string.scan_scanning);
-        detailText.setText("");
-        primaryButton.setEnabled(false);
+        headerStatusText = getString(R.string.scan_scanning);
+        headerDetailText = "";
+        headerPrimaryEnabled = false;
         setFilterControlsEnabled(false);
         updateProgress(0);
-        if (doneText != null) {
-            doneText.setVisibility(View.INVISIBLE);
-        }
+        headerDoneVisible = false;
+        renderHeader();
 
         Context appContext = requireContext().getApplicationContext();
         scanExecutor.execute(() -> {
@@ -177,63 +175,47 @@ public class ScanFragment extends Fragment {
     }
 
     private void showPermissionState() {
-        if (statusText == null || detailText == null || primaryButton == null) {
-            return;
-        }
-        statusText.setText(R.string.scan_status_waiting_permission);
-        detailText.setText(R.string.scan_permission_hint);
-        primaryButton.setText(R.string.scan_request_permission);
-        primaryButton.setEnabled(true);
+        headerStatusText = getString(R.string.scan_status_waiting_permission);
+        headerDetailText = getString(R.string.scan_permission_hint);
+        headerPrimaryButtonText = getString(R.string.scan_request_permission);
+        headerPrimaryEnabled = true;
         updateProgress(0);
-        if (doneText != null) {
-            doneText.setVisibility(View.INVISIBLE);
-        }
+        headerDoneVisible = false;
         setFilterControlsEnabled(false);
+        renderHeader();
     }
 
     private void showReadyState() {
-        if (statusText == null || detailText == null || primaryButton == null) {
-            return;
-        }
-        statusText.setText(R.string.scan_status_ready);
-        detailText.setText("");
-        primaryButton.setText(R.string.scan_start);
-        primaryButton.setEnabled(true);
+        headerStatusText = getString(R.string.scan_status_ready);
+        headerDetailText = "";
+        headerPrimaryButtonText = getString(R.string.scan_start);
+        headerPrimaryEnabled = true;
         updateProgress(0);
-        if (doneText != null) {
-            doneText.setVisibility(View.INVISIBLE);
-        }
+        headerDoneVisible = false;
         setFilterControlsEnabled(false);
+        renderHeader();
     }
 
     private void showScanResult(int totalCount) {
-        if (statusText == null || detailText == null || primaryButton == null) {
-            return;
-        }
-        statusText.setText(R.string.scan_progress_title);
-        detailText.setText(getString(R.string.scan_total_count, totalCount));
-        primaryButton.setText(R.string.scan_rescan);
-        primaryButton.setEnabled(true);
+        headerStatusText = getString(R.string.scan_progress_title);
+        headerDetailText = getString(R.string.scan_total_count, totalCount);
+        headerPrimaryButtonText = getString(R.string.scan_rescan);
+        headerPrimaryEnabled = true;
         updateProgress(100);
-        if (doneText != null) {
-            doneText.setVisibility(View.VISIBLE);
-        }
+        headerDoneVisible = true;
         setFilterControlsEnabled(totalCount > 0);
+        renderHeader();
     }
 
     private void showScanError(String message) {
-        if (statusText == null || detailText == null || primaryButton == null) {
-            return;
-        }
-        statusText.setText(getString(R.string.scan_status_failed, message));
-        detailText.setText("");
-        primaryButton.setText(R.string.scan_rescan);
-        primaryButton.setEnabled(true);
+        headerStatusText = getString(R.string.scan_status_failed, message);
+        headerDetailText = "";
+        headerPrimaryButtonText = getString(R.string.scan_rescan);
+        headerPrimaryEnabled = true;
         updateProgress(0);
-        if (doneText != null) {
-            doneText.setVisibility(View.INVISIBLE);
-        }
+        headerDoneVisible = false;
         setFilterControlsEnabled(false);
+        renderHeader();
     }
 
     private void applyFilterAndSort() {
@@ -255,10 +237,9 @@ public class ScanFragment extends Fragment {
         }
         Collections.sort(visibleItems, comparatorFor(sortMode));
         mediaAdapter.submitList(visibleItems);
-        if (mediaCountText != null) {
-            mediaCountText.setText(getString(R.string.scan_item_count, visibleItems.size()));
-        }
+        headerMediaCountText = getString(R.string.scan_item_count, visibleItems.size());
         updateFilterButtonState();
+        renderHeader();
     }
 
     private Comparator<MediaItemInfo> comparatorFor(SortMode mode) {
@@ -291,30 +272,17 @@ public class ScanFragment extends Fragment {
     }
 
     private void setFilterControlsEnabled(boolean enabled) {
-        if (filterButton == null || sortButton == null) {
-            return;
-        }
-        filterButton.setEnabled(enabled);
-        sortButton.setEnabled(enabled);
+        headerControlsEnabled = enabled;
         updateFilterButtonState();
     }
 
     private void updateFilterButtonState() {
-        if (filterButton == null || sortButton == null) {
-            return;
-        }
-        boolean filtered = filterMode != FilterMode.ALL || hideCompressedOutput;
-        filterButton.setAlpha(filtered ? 1.0f : 0.85f);
-        sortButton.setAlpha(1.0f);
+        renderHeader();
     }
 
     private void updateProgress(int progress) {
-        if (progressBar != null) {
-            progressBar.setProgress(progress);
-        }
-        if (progressPercentText != null) {
-            progressPercentText.setText(progress + "%");
-        }
+        headerProgress = progress;
+        renderHeader();
     }
 
     private void showFilterSheet() {
@@ -348,8 +316,8 @@ public class ScanFragment extends Fragment {
         dialog.show();
     }
 
-    private void showSortMenu() {
-        PopupMenu menu = new PopupMenu(requireContext(), sortButton);
+    private void showSortMenu(View anchor) {
+        PopupMenu menu = new PopupMenu(requireContext(), anchor);
         menu.inflate(R.menu.sort_menu);
         int checkedId;
         if (sortMode == SortMode.BITRATE) {
@@ -385,18 +353,35 @@ public class ScanFragment extends Fragment {
     }
 
     private void updateSortButtonText() {
-        if (sortButton == null) {
+        if (sortMode == SortMode.BITRATE) {
+            headerSortButtonText = getString(R.string.sort_bitrate);
+        } else if (sortMode == SortMode.CAPTURE_TIME) {
+            headerSortButtonText = getString(R.string.sort_capture_time);
+        } else if (sortMode == SortMode.ADDED_TIME) {
+            headerSortButtonText = getString(R.string.sort_added_time);
+        } else {
+            headerSortButtonText = getString(R.string.sort_size);
+        }
+        renderHeader();
+    }
+
+    private void renderHeader() {
+        if (mediaAdapter == null) {
             return;
         }
-        if (sortMode == SortMode.BITRATE) {
-            sortButton.setText(R.string.sort_bitrate);
-        } else if (sortMode == SortMode.CAPTURE_TIME) {
-            sortButton.setText(R.string.sort_capture_time);
-        } else if (sortMode == SortMode.ADDED_TIME) {
-            sortButton.setText(R.string.sort_added_time);
-        } else {
-            sortButton.setText(R.string.sort_size);
-        }
+        boolean filtered = filterMode != FilterMode.ALL || hideCompressedOutput;
+        mediaAdapter.setHeaderState(new MediaGridAdapter.HeaderState(
+                headerStatusText,
+                headerDetailText,
+                headerPrimaryButtonText,
+                headerSortButtonText,
+                headerMediaCountText,
+                headerProgress,
+                headerDoneVisible,
+                headerPrimaryEnabled,
+                headerControlsEnabled,
+                filtered
+        ));
     }
 
     private boolean hasAllMediaPermissions(Context context) {
