@@ -9,4 +9,5 @@
     <color name="yaya_text_primary">#FFFFFFFF</color>
     <color name="yaya_text_secondary">#FFC9D2DE</color>
     <color name="yaya_text_muted">#FF8F9CAF</color>
+    <color name="yaya_danger">#FFE53A3A</color>
 </resources>
