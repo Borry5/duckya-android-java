@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/sort_by_size"
+        android:title="@string/sort_size" />
+    <item
+        android:id="@+id/sort_by_bitrate"
+        android:title="@string/sort_bitrate" />
+    <item
+        android:id="@+id/sort_by_capture_time"
+        android:title="@string/sort_capture_time" />
+    <item
+        android:id="@+id/sort_by_added_time"
+        android:title="@string/sort_added_time" />
+</menu>

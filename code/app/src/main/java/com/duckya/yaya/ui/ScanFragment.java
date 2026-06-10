@@ -6,9 +6,14 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.PopupMenu;
+import android.widget.ProgressBar;
+import android.widget.RadioGroup;
+import android.widget.Switch;
 import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -23,8 +28,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.duckya.yaya.R;
 import com.duckya.yaya.model.MediaItemInfo;
 import com.duckya.yaya.model.MediaKind;
-import com.duckya.yaya.util.FormatUtils;
 import com.duckya.yaya.util.MediaStoreScanner;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,22 +41,24 @@ import java.util.concurrent.Executors;
 
 public class ScanFragment extends Fragment {
     private enum FilterMode { ALL, IMAGE, VIDEO }
-    private enum SortMode { TIME, SIZE }
+    private enum SortMode { SIZE, BITRATE, CAPTURE_TIME, ADDED_TIME }
 
     private TextView statusText;
     private TextView detailText;
+    private TextView doneText;
+    private TextView progressPercentText;
+    private TextView mediaCountText;
+    private ProgressBar progressBar;
     private Button primaryButton;
-    private Button filterAllButton;
-    private Button filterImageButton;
-    private Button filterVideoButton;
-    private Button sortTimeButton;
-    private Button sortSizeButton;
+    private Button filterButton;
+    private Button sortButton;
     private MediaGridAdapter mediaAdapter;
     private ExecutorService scanExecutor;
     private final MediaStoreScanner scanner = new MediaStoreScanner();
     private final List<MediaItemInfo> allItems = new ArrayList<>();
     private FilterMode filterMode = FilterMode.ALL;
-    private SortMode sortMode = SortMode.TIME;
+    private SortMode sortMode = SortMode.SIZE;
+    private boolean hideCompressedOutput;
 
     private final ActivityResultLauncher<String[]> permissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), this::onPermissionResult);
@@ -71,12 +78,13 @@ public class ScanFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         statusText = view.findViewById(R.id.scan_status_text);
         detailText = view.findViewById(R.id.scan_detail_text);
+        doneText = view.findViewById(R.id.scan_done_text);
+        progressPercentText = view.findViewById(R.id.scan_progress_percent_text);
+        mediaCountText = view.findViewById(R.id.media_count_text);
+        progressBar = view.findViewById(R.id.scan_progress_bar);
         primaryButton = view.findViewById(R.id.scan_primary_button);
-        filterAllButton = view.findViewById(R.id.filter_all_button);
-        filterImageButton = view.findViewById(R.id.filter_image_button);
-        filterVideoButton = view.findViewById(R.id.filter_video_button);
-        sortTimeButton = view.findViewById(R.id.sort_time_button);
-        sortSizeButton = view.findViewById(R.id.sort_size_button);
+        filterButton = view.findViewById(R.id.filter_button);
+        sortButton = view.findViewById(R.id.sort_button);
         RecyclerView mediaRecycler = view.findViewById(R.id.media_recycler);
         scanExecutor = Executors.newSingleThreadExecutor();
         mediaAdapter = new MediaGridAdapter(item ->
@@ -91,27 +99,11 @@ public class ScanFragment extends Fragment {
                 permissionLauncher.launch(requiredPermissions());
             }
         });
-        filterAllButton.setOnClickListener(v -> {
-            filterMode = FilterMode.ALL;
-            applyFilterAndSort();
-        });
-        filterImageButton.setOnClickListener(v -> {
-            filterMode = FilterMode.IMAGE;
-            applyFilterAndSort();
-        });
-        filterVideoButton.setOnClickListener(v -> {
-            filterMode = FilterMode.VIDEO;
-            applyFilterAndSort();
-        });
-        sortTimeButton.setOnClickListener(v -> {
-            sortMode = SortMode.TIME;
-            applyFilterAndSort();
-        });
-        sortSizeButton.setOnClickListener(v -> {
-            sortMode = SortMode.SIZE;
-            applyFilterAndSort();
-        });
+        filterButton.setOnClickListener(v -> showFilterSheet());
+        sortButton.setOnClickListener(v -> showSortMenu());
         setFilterControlsEnabled(false);
+        updateProgress(0);
+        updateSortButtonText();
 
         if (hasAllMediaPermissions(requireContext())) {
             showReadyState();
@@ -130,12 +122,13 @@ public class ScanFragment extends Fragment {
         }
         statusText = null;
         detailText = null;
+        doneText = null;
+        progressPercentText = null;
+        mediaCountText = null;
+        progressBar = null;
         primaryButton = null;
-        filterAllButton = null;
-        filterImageButton = null;
-        filterVideoButton = null;
-        sortTimeButton = null;
-        sortSizeButton = null;
+        filterButton = null;
+        sortButton = null;
         mediaAdapter = null;
     }
 
@@ -157,32 +150,22 @@ public class ScanFragment extends Fragment {
             return;
         }
         statusText.setText(R.string.scan_scanning);
-        detailText.setText(R.string.scan_stage_hint);
+        detailText.setText("");
         primaryButton.setEnabled(false);
         setFilterControlsEnabled(false);
+        updateProgress(0);
+        if (doneText != null) {
+            doneText.setVisibility(View.INVISIBLE);
+        }
 
         Context appContext = requireContext().getApplicationContext();
         scanExecutor.execute(() -> {
             try {
                 List<MediaItemInfo> items = scanner.scan(appContext);
-                long imageCount = 0L;
-                long videoCount = 0L;
-                long totalBytes = 0L;
-                for (MediaItemInfo item : items) {
-                    if (item.getKind() == MediaKind.IMAGE) {
-                        imageCount++;
-                    } else if (item.getKind() == MediaKind.VIDEO) {
-                        videoCount++;
-                    }
-                    totalBytes += item.getSizeBytes();
-                }
-                long finalImageCount = imageCount;
-                long finalVideoCount = videoCount;
-                long finalTotalBytes = totalBytes;
                 requireActivity().runOnUiThread(() -> {
                     allItems.clear();
                     allItems.addAll(items);
-                    showScanResult(items.size(), finalImageCount, finalVideoCount, finalTotalBytes);
+                    showScanResult(items.size());
                     applyFilterAndSort();
                 });
             } catch (Exception e) {
@@ -200,6 +183,10 @@ public class ScanFragment extends Fragment {
         detailText.setText(R.string.scan_permission_hint);
         primaryButton.setText(R.string.scan_request_permission);
         primaryButton.setEnabled(true);
+        updateProgress(0);
+        if (doneText != null) {
+            doneText.setVisibility(View.INVISIBLE);
+        }
         setFilterControlsEnabled(false);
     }
 
@@ -208,24 +195,28 @@ public class ScanFragment extends Fragment {
             return;
         }
         statusText.setText(R.string.scan_status_ready);
-        detailText.setText(R.string.scan_stage_hint);
+        detailText.setText("");
         primaryButton.setText(R.string.scan_start);
         primaryButton.setEnabled(true);
+        updateProgress(0);
+        if (doneText != null) {
+            doneText.setVisibility(View.INVISIBLE);
+        }
         setFilterControlsEnabled(false);
     }
 
-    private void showScanResult(int totalCount, long imageCount, long videoCount, long totalBytes) {
+    private void showScanResult(int totalCount) {
         if (statusText == null || detailText == null || primaryButton == null) {
             return;
         }
-        statusText.setText(totalCount == 0 ? R.string.scan_status_empty : R.string.scan_status_done);
-        String details = getString(R.string.scan_total_count, totalCount)
-                + "\n" + getString(R.string.scan_image_count, imageCount)
-                + "\n" + getString(R.string.scan_video_count, videoCount)
-                + "\n" + getString(R.string.scan_total_size, FormatUtils.formatSize(totalBytes));
-        detailText.setText(details);
+        statusText.setText(R.string.scan_progress_title);
+        detailText.setText(getString(R.string.scan_total_count, totalCount));
         primaryButton.setText(R.string.scan_rescan);
         primaryButton.setEnabled(true);
+        updateProgress(100);
+        if (doneText != null) {
+            doneText.setVisibility(View.VISIBLE);
+        }
         setFilterControlsEnabled(totalCount > 0);
     }
 
@@ -234,9 +225,13 @@ public class ScanFragment extends Fragment {
             return;
         }
         statusText.setText(getString(R.string.scan_status_failed, message));
-        detailText.setText(R.string.scan_stage_hint);
+        detailText.setText("");
         primaryButton.setText(R.string.scan_rescan);
         primaryButton.setEnabled(true);
+        updateProgress(0);
+        if (doneText != null) {
+            doneText.setVisibility(View.INVISIBLE);
+        }
         setFilterControlsEnabled(false);
     }
 
@@ -252,11 +247,27 @@ public class ScanFragment extends Fragment {
             if (filterMode == FilterMode.VIDEO && item.getKind() != MediaKind.VIDEO) {
                 continue;
             }
+            if (hideCompressedOutput && item.getName().toLowerCase().contains("_compressed")) {
+                continue;
+            }
             visibleItems.add(item);
         }
-        Collections.sort(visibleItems, sortMode == SortMode.SIZE ? sizeComparator() : timeComparator());
+        Collections.sort(visibleItems, comparatorFor(sortMode));
         mediaAdapter.submitList(visibleItems);
+        if (mediaCountText != null) {
+            mediaCountText.setText(getString(R.string.scan_item_count, visibleItems.size()));
+        }
         updateFilterButtonState();
+    }
+
+    private Comparator<MediaItemInfo> comparatorFor(SortMode mode) {
+        if (mode == SortMode.BITRATE) {
+            return bitrateComparator();
+        }
+        if (mode == SortMode.CAPTURE_TIME || mode == SortMode.ADDED_TIME) {
+            return timeComparator();
+        }
+        return sizeComparator();
     }
 
     private Comparator<MediaItemInfo> timeComparator() {
@@ -267,29 +278,124 @@ public class ScanFragment extends Fragment {
         return (left, right) -> Long.compare(right.getSizeBytes(), left.getSizeBytes());
     }
 
+    private Comparator<MediaItemInfo> bitrateComparator() {
+        return (left, right) -> Double.compare(videoBitrateMbps(right), videoBitrateMbps(left));
+    }
+
+    private double videoBitrateMbps(MediaItemInfo item) {
+        if (item.getKind() != MediaKind.VIDEO || item.getDurationMs() <= 0L) {
+            return 0.0;
+        }
+        return item.getSizeBytes() * 8.0 / (item.getDurationMs() / 1000.0) / 1_000_000.0;
+    }
+
     private void setFilterControlsEnabled(boolean enabled) {
-        if (filterAllButton == null || filterImageButton == null || filterVideoButton == null
-                || sortTimeButton == null || sortSizeButton == null) {
+        if (filterButton == null || sortButton == null) {
             return;
         }
-        filterAllButton.setEnabled(enabled);
-        filterImageButton.setEnabled(enabled);
-        filterVideoButton.setEnabled(enabled);
-        sortTimeButton.setEnabled(enabled);
-        sortSizeButton.setEnabled(enabled);
+        filterButton.setEnabled(enabled);
+        sortButton.setEnabled(enabled);
         updateFilterButtonState();
     }
 
     private void updateFilterButtonState() {
-        if (filterAllButton == null || filterImageButton == null || filterVideoButton == null
-                || sortTimeButton == null || sortSizeButton == null) {
+        if (filterButton == null || sortButton == null) {
             return;
         }
-        filterAllButton.setAlpha(filterMode == FilterMode.ALL ? 1.0f : 0.65f);
-        filterImageButton.setAlpha(filterMode == FilterMode.IMAGE ? 1.0f : 0.65f);
-        filterVideoButton.setAlpha(filterMode == FilterMode.VIDEO ? 1.0f : 0.65f);
-        sortTimeButton.setAlpha(sortMode == SortMode.TIME ? 1.0f : 0.65f);
-        sortSizeButton.setAlpha(sortMode == SortMode.SIZE ? 1.0f : 0.65f);
+        boolean filtered = filterMode != FilterMode.ALL || hideCompressedOutput;
+        filterButton.setAlpha(filtered ? 1.0f : 0.85f);
+        sortButton.setAlpha(1.0f);
+    }
+
+    private void updateProgress(int progress) {
+        if (progressBar != null) {
+            progressBar.setProgress(progress);
+        }
+        if (progressPercentText != null) {
+            progressPercentText.setText(progress + "%");
+        }
+    }
+
+    private void showFilterSheet() {
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        View sheet = LayoutInflater.from(requireContext()).inflate(R.layout.sheet_filter, null, false);
+        RadioGroup typeGroup = sheet.findViewById(R.id.filter_type_group);
+        Switch hideCompressedSwitch = sheet.findViewById(R.id.filter_hide_compressed_output_switch);
+        if (filterMode == FilterMode.IMAGE) {
+            typeGroup.check(R.id.filter_type_image);
+        } else if (filterMode == FilterMode.VIDEO) {
+            typeGroup.check(R.id.filter_type_video);
+        } else {
+            typeGroup.check(R.id.filter_type_all);
+        }
+        hideCompressedSwitch.setChecked(hideCompressedOutput);
+        typeGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            if (checkedId == R.id.filter_type_image) {
+                filterMode = FilterMode.IMAGE;
+            } else if (checkedId == R.id.filter_type_video) {
+                filterMode = FilterMode.VIDEO;
+            } else {
+                filterMode = FilterMode.ALL;
+            }
+            applyFilterAndSort();
+        });
+        hideCompressedSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            hideCompressedOutput = isChecked;
+            applyFilterAndSort();
+        });
+        dialog.setContentView(sheet);
+        dialog.show();
+    }
+
+    private void showSortMenu() {
+        PopupMenu menu = new PopupMenu(requireContext(), sortButton);
+        menu.inflate(R.menu.sort_menu);
+        int checkedId;
+        if (sortMode == SortMode.BITRATE) {
+            checkedId = R.id.sort_by_bitrate;
+        } else if (sortMode == SortMode.CAPTURE_TIME) {
+            checkedId = R.id.sort_by_capture_time;
+        } else if (sortMode == SortMode.ADDED_TIME) {
+            checkedId = R.id.sort_by_added_time;
+        } else {
+            checkedId = R.id.sort_by_size;
+        }
+        for (int i = 0; i < menu.getMenu().size(); i++) {
+            MenuItem item = menu.getMenu().getItem(i);
+            item.setCheckable(true);
+            item.setChecked(item.getItemId() == checkedId);
+        }
+        menu.setOnMenuItemClickListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.sort_by_bitrate) {
+                sortMode = SortMode.BITRATE;
+            } else if (id == R.id.sort_by_capture_time) {
+                sortMode = SortMode.CAPTURE_TIME;
+            } else if (id == R.id.sort_by_added_time) {
+                sortMode = SortMode.ADDED_TIME;
+            } else {
+                sortMode = SortMode.SIZE;
+            }
+            updateSortButtonText();
+            applyFilterAndSort();
+            return true;
+        });
+        menu.show();
+    }
+
+    private void updateSortButtonText() {
+        if (sortButton == null) {
+            return;
+        }
+        if (sortMode == SortMode.BITRATE) {
+            sortButton.setText(R.string.sort_bitrate);
+        } else if (sortMode == SortMode.CAPTURE_TIME) {
+            sortButton.setText(R.string.sort_capture_time);
+        } else if (sortMode == SortMode.ADDED_TIME) {
+            sortButton.setText(R.string.sort_added_time);
+        } else {
+            sortButton.setText(R.string.sort_size);
+        }
     }
 
     private boolean hasAllMediaPermissions(Context context) {

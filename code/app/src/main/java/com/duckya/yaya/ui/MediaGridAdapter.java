@@ -47,7 +47,6 @@ public class MediaGridAdapter extends RecyclerView.Adapter<MediaGridAdapter.Medi
     @Override
     public void onBindViewHolder(@NonNull MediaViewHolder holder, int position) {
         MediaItemInfo item = items.get(position);
-        holder.nameText.setText(item.getName());
         holder.sizeBadge.setText(FormatUtils.formatSize(item.getSizeBytes()));
         holder.kindBadge.setText(item.getKind() == MediaKind.VIDEO
                 ? formatDuration(item.getDurationMs())
@@ -80,14 +79,12 @@ public class MediaGridAdapter extends RecyclerView.Adapter<MediaGridAdapter.Medi
         final ImageView thumbnail;
         final TextView kindBadge;
         final TextView sizeBadge;
-        final TextView nameText;
 
         MediaViewHolder(@NonNull View itemView) {
             super(itemView);
             thumbnail = itemView.findViewById(R.id.media_thumbnail);
             kindBadge = itemView.findViewById(R.id.media_kind_badge);
             sizeBadge = itemView.findViewById(R.id.media_size_badge);
-            nameText = itemView.findViewById(R.id.media_name_text);
         }
     }
 }
