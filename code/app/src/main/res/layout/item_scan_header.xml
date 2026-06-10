@@ -5,63 +5,68 @@
     android:orientation="vertical"
     android:paddingTop="24dp">
 
-    <LinearLayout
-        android:id="@+id/scan_title_bar"
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:layout_height="wrap_content">
 
-        <TextView
-            android:id="@+id/scan_title_text"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:id="@+id/scan_title_bar"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/scan_title"
-            android:textColor="@color/yaya_text_primary"
-            android:textSize="28sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/scan_select_button"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:text="@string/scan_select" />
-    </LinearLayout>
+            <TextView
+                android:id="@+id/scan_title_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/scan_title"
+                android:textColor="@color/yaya_text_primary"
+                android:textSize="28sp"
+                android:textStyle="bold" />
 
-    <LinearLayout
-        android:id="@+id/scan_selection_bar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:visibility="gone">
+            <Button
+                android:id="@+id/scan_select_button"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:text="@string/scan_select" />
+        </LinearLayout>
 
-        <Button
-            android:id="@+id/scan_selection_compress_button"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:text="@string/scan_selection_compress" />
+        <LinearLayout
+            android:id="@+id/scan_selection_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="invisible">
 
-        <Button
-            android:id="@+id/scan_selection_delete_button"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="10dp"
-            android:layout_weight="1"
-            android:backgroundTint="@color/yaya_danger"
-            android:text="@string/scan_selection_delete" />
+            <Button
+                android:id="@+id/scan_selection_compress_button"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="@string/scan_selection_compress" />
 
-        <Button
-            android:id="@+id/scan_selection_done_button"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:layout_marginStart="10dp"
-            android:text="@string/scan_selection_done" />
-    </LinearLayout>
+            <Button
+                android:id="@+id/scan_selection_delete_button"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:backgroundTint="@color/yaya_danger"
+                android:text="@string/scan_selection_delete" />
+
+            <Button
+                android:id="@+id/scan_selection_done_button"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginStart="10dp"
+                android:text="@string/scan_selection_done" />
+        </LinearLayout>
+    </FrameLayout>
 
     <LinearLayout
         android:layout_width="match_parent"

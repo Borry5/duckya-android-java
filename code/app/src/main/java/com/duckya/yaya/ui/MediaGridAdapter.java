@@ -19,8 +19,10 @@ import com.duckya.yaya.util.FormatUtils;
 import com.duckya.yaya.util.ThumbnailLoader;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -50,8 +52,10 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     private final List<MediaItemInfo> items = new ArrayList<>();
+    private final Map<String, Integer> uriPositions = new HashMap<>();
     private final Listener listener;
     private HeaderState headerState = HeaderState.initial();
+    private RecyclerView attachedRecyclerView;
     private boolean selectionMode;
     private Set<String> selectedUris;
 
@@ -63,27 +67,45 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     public void submitList(List<MediaItemInfo> newItems) {
         items.clear();
         items.addAll(newItems);
+        rebuildUriPositions();
         notifyDataSetChanged();
     }
 
     public void setHeaderState(HeaderState state) {
         headerState = state;
-        notifyItemChanged(0, PAYLOAD_HEADER);
+        if (!bindVisibleHeader()) {
+            notifyItemChanged(0, PAYLOAD_HEADER);
+        }
     }
 
-    // 选择模式变化时只局部刷新勾选控件，避免缩略图整屏重载。
+    // 选择模式变化时只刷新当前屏幕可见卡片，避免大量媒体列表被整段通知拖慢。
     public void setSelectionMode(boolean selectionMode, Set<String> selectedUris) {
         this.selectionMode = selectionMode;
         this.selectedUris = selectedUris;
-        if (!items.isEmpty()) {
-            notifyItemRangeChanged(1, items.size(), PAYLOAD_SELECTION);
-        }
+        refreshVisibleSelectionItems();
     }
 
     public void notifySelectionChanged(String uriText) {
         int adapterPosition = adapterPositionForUri(uriText);
-        if (adapterPosition >= 1) {
+        if (adapterPosition < 1) {
+            return;
+        }
+        if (!bindVisibleSelectionItem(adapterPosition)) {
             notifyItemChanged(adapterPosition, PAYLOAD_SELECTION);
+        }
+    }
+
+    @Override
+    public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
+        super.onAttachedToRecyclerView(recyclerView);
+        attachedRecyclerView = recyclerView;
+    }
+
+    @Override
+    public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
+        super.onDetachedFromRecyclerView(recyclerView);
+        if (attachedRecyclerView == recyclerView) {
+            attachedRecyclerView = null;
         }
     }
 
@@ -180,12 +202,52 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     private int adapterPositionForUri(String uriText) {
+        Integer position = uriPositions.get(uriText);
+        return position == null ? RecyclerView.NO_POSITION : position;
+    }
+
+    private void rebuildUriPositions() {
+        uriPositions.clear();
         for (int i = 0; i < items.size(); i++) {
-            if (items.get(i).getUri().toString().equals(uriText)) {
-                return i + 1;
+            uriPositions.put(items.get(i).getUri().toString(), i + 1);
+        }
+    }
+
+    private boolean bindVisibleHeader() {
+        if (attachedRecyclerView == null) {
+            return false;
+        }
+        RecyclerView.ViewHolder holder = attachedRecyclerView.findViewHolderForAdapterPosition(0);
+        if (holder instanceof HeaderViewHolder) {
+            ((HeaderViewHolder) holder).bind(headerState, listener);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean bindVisibleSelectionItem(int adapterPosition) {
+        if (attachedRecyclerView == null) {
+            return false;
+        }
+        RecyclerView.ViewHolder holder = attachedRecyclerView.findViewHolderForAdapterPosition(adapterPosition);
+        if (holder instanceof MediaViewHolder) {
+            updateSelectionUi((MediaViewHolder) holder, items.get(adapterPosition - 1));
+            return true;
+        }
+        return false;
+    }
+
+    private void refreshVisibleSelectionItems() {
+        if (attachedRecyclerView == null) {
+            return;
+        }
+        for (int i = 0; i < attachedRecyclerView.getChildCount(); i++) {
+            RecyclerView.ViewHolder holder = attachedRecyclerView.getChildViewHolder(attachedRecyclerView.getChildAt(i));
+            int position = holder.getBindingAdapterPosition();
+            if (position > 0 && position <= items.size() && holder instanceof MediaViewHolder) {
+                updateSelectionUi((MediaViewHolder) holder, items.get(position - 1));
             }
         }
-        return RecyclerView.NO_POSITION;
     }
 
     static class MediaViewHolder extends RecyclerView.ViewHolder {
@@ -240,8 +302,8 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
 
         void bind(HeaderState state, Listener listener) {
-            titleBar.setVisibility(state.selectionMode ? View.GONE : View.VISIBLE);
-            selectionBar.setVisibility(state.selectionMode ? View.VISIBLE : View.GONE);
+            titleBar.setVisibility(state.selectionMode ? View.INVISIBLE : View.VISIBLE);
+            selectionBar.setVisibility(state.selectionMode ? View.VISIBLE : View.INVISIBLE);
             statusText.setText(state.statusText);
             detailText.setText(state.detailText);
             doneText.setVisibility(state.doneVisible ? View.VISIBLE : View.INVISIBLE);
@@ -259,10 +321,18 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             filterButton.setOnClickListener(v -> listener.onFilterClick());
             sortButton.setOnClickListener(v -> listener.onSortClick(sortButton));
             selectButton.setEnabled(state.controlsEnabled);
-            selectButton.setOnClickListener(v -> listener.onSelectModeClick());
+            selectButton.setOnClickListener(v -> {
+                titleBar.setVisibility(View.INVISIBLE);
+                selectionBar.setVisibility(View.VISIBLE);
+                listener.onSelectModeClick();
+            });
             selectionDeleteButton.setEnabled(state.selectedCount > 0);
             selectionCompressButton.setEnabled(state.selectedCount > 0);
-            selectionDoneButton.setOnClickListener(v -> listener.onSelectionDoneClick());
+            selectionDoneButton.setOnClickListener(v -> {
+                titleBar.setVisibility(View.VISIBLE);
+                selectionBar.setVisibility(View.INVISIBLE);
+                listener.onSelectionDoneClick();
+            });
             selectionDeleteButton.setOnClickListener(v -> listener.onSelectionDeleteClick());
             selectionCompressButton.setOnClickListener(v -> listener.onSelectionCompressClick());
         }
