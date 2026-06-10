@@ -16,6 +16,8 @@ import androidx.annotation.Nullable;
 import com.duckya.yaya.R;
 import com.duckya.yaya.model.MediaItemInfo;
 import com.duckya.yaya.model.MediaKind;
+import com.duckya.yaya.model.QueueAction;
+import com.duckya.yaya.queue.QueueManager;
 import com.duckya.yaya.util.FormatUtils;
 import com.duckya.yaya.util.ThumbnailLoader;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
@@ -71,10 +73,16 @@ public class PreviewBottomSheet extends BottomSheetDialogFragment {
         infoText.setText(buildInfoText(item));
         ThumbnailLoader.loadInto(requireContext(), item, image);
 
-        View.OnClickListener placeholderClick = v ->
-                Toast.makeText(requireContext(), R.string.preview_stage_toast, Toast.LENGTH_SHORT).show();
-        compressButton.setOnClickListener(placeholderClick);
-        deleteButton.setOnClickListener(placeholderClick);
+        compressButton.setOnClickListener(v -> {
+            QueueManager.getInstance().addTask(item, QueueAction.COMPRESS);
+            Toast.makeText(requireContext(), R.string.preview_added_compress, Toast.LENGTH_SHORT).show();
+            dismiss();
+        });
+        deleteButton.setOnClickListener(v -> {
+            QueueManager.getInstance().addTask(item, QueueAction.DELETE);
+            Toast.makeText(requireContext(), R.string.preview_added_delete, Toast.LENGTH_SHORT).show();
+            dismiss();
+        });
     }
 
     private MediaItemInfo readItem() {

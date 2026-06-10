@@ -28,6 +28,8 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     public interface Listener {
         void onMediaClick(MediaItemInfo item);
 
+        void onMediaLongClick(MediaItemInfo item, View anchor);
+
         void onPrimaryActionClick();
 
         void onFilterClick();
@@ -85,6 +87,10 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 : formatMegapixels(item.getWidth(), item.getHeight()));
         ThumbnailLoader.loadInto(mediaHolder.thumbnail.getContext(), item, mediaHolder.thumbnail);
         mediaHolder.itemView.setOnClickListener(v -> listener.onMediaClick(item));
+        mediaHolder.itemView.setOnLongClickListener(v -> {
+            listener.onMediaLongClick(item, v);
+            return true;
+        });
     }
 
     @Override

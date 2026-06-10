@@ -25,6 +25,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.duckya.yaya.R;
 import com.duckya.yaya.model.MediaItemInfo;
 import com.duckya.yaya.model.MediaKind;
+import com.duckya.yaya.model.QueueAction;
+import com.duckya.yaya.queue.QueueManager;
 import com.duckya.yaya.util.MediaStoreScanner;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 
@@ -79,6 +81,11 @@ public class ScanFragment extends Fragment {
             @Override
             public void onMediaClick(MediaItemInfo item) {
                 PreviewBottomSheet.newInstance(item).show(getParentFragmentManager(), "preview");
+            }
+
+            @Override
+            public void onMediaLongClick(MediaItemInfo item, View anchor) {
+                showMediaActionMenu(item, anchor);
             }
 
             @Override
@@ -314,6 +321,24 @@ public class ScanFragment extends Fragment {
         });
         dialog.setContentView(sheet);
         dialog.show();
+    }
+
+    private void showMediaActionMenu(MediaItemInfo item, View anchor) {
+        final int actionAddCompress = 1;
+        final int actionAddDelete = 2;
+        PopupMenu menu = new PopupMenu(requireContext(), anchor);
+        menu.getMenu().add(0, actionAddCompress, 0, R.string.scan_menu_add_compress);
+        menu.getMenu().add(0, actionAddDelete, 1, R.string.scan_menu_add_delete);
+        menu.setOnMenuItemClickListener(menuItem -> {
+            int id = menuItem.getItemId();
+            if (id == actionAddDelete) {
+                QueueManager.getInstance().addTask(item, QueueAction.DELETE);
+                return true;
+            }
+            QueueManager.getInstance().addTask(item, QueueAction.COMPRESS);
+            return true;
+        });
+        menu.show();
     }
 
     private void showSortMenu(View anchor) {
