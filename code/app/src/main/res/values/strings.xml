@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">鸭压 Java</string>
+    <string name="tab_scan">浏览本地</string>
+    <string name="tab_queue">任务队列</string>
+    <string name="scan_title">相册总览</string>
+    <string name="scan_stage_hint">阶段 1 已搭好页面骨架。下一阶段会接入相册权限和媒体扫描。</string>
+    <string name="scan_action_placeholder">等待扫描功能接入</string>
+    <string name="queue_title">任务队列</string>
+    <string name="queue_stage_hint">阶段 1 已搭好队列页面。后续会显示压缩和删除任务。</string>
+    <string name="queue_empty_placeholder">当前无任务</string>
+</resources>

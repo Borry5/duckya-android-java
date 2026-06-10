@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="yaya_background">#FF081120</color>
+    <color name="yaya_surface">#FF232A36</color>
+    <color name="yaya_surface_high">#FF2F3848</color>
+    <color name="yaya_primary">#FF2F76FF</color>
+    <color name="yaya_text_primary">#FFFFFFFF</color>
+    <color name="yaya_text_secondary">#FFC9D2DE</color>
+    <color name="yaya_text_muted">#FF8F9CAF</color>
+</resources>
