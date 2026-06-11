@@ -29,6 +29,10 @@
     <string name="scan_selection_count">已选 %1$d 项</string>
     <string name="scan_selection_compress">压缩</string>
     <string name="scan_selection_delete">删除</string>
+    <string name="scan_checkbox_select">选择 %1$s</string>
+    <string name="scan_checkbox_deselect">取消选择 %1$s</string>
+    <string name="scan_item_selected_state">已选中</string>
+    <string name="scan_item_unselected_state">未选中</string>
     <string name="scan_cached_loaded">已加载上次扫描结果</string>
     <string name="scan_selected_added_compress">已添加 %1$d 项到压缩队列</string>
     <string name="scan_selected_added_delete">已添加 %1$d 项到删除队列</string>
@@ -53,7 +57,7 @@
     <string name="preview_added_compress">已加入压缩队列</string>
     <string name="preview_added_delete">已加入删除队列</string>
     <string name="queue_title">任务队列</string>
-    <string name="queue_stage_hint">当前阶段先建立任务队列，真实压缩会在下一阶段接入。</string>
+    <string name="queue_stage_hint">当前阶段已接入图片压缩，开始队列后会顺序处理图片任务。</string>
     <string name="queue_empty_placeholder">当前无任务</string>
     <string name="queue_clear">清空</string>
     <string name="queue_start">开始</string>
@@ -63,7 +67,7 @@
     <string name="queue_action_compress">压缩</string>
     <string name="queue_action_delete">删除</string>
     <string name="queue_status_pending">待处理</string>
-    <string name="queue_status_running">等待处理</string>
+    <string name="queue_status_running">处理中</string>
     <string name="queue_status_done">已完成</string>
     <string name="queue_status_failed">失败</string>
     <string name="queue_cancel">取消</string>

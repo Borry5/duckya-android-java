@@ -9,6 +9,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.duckya.yaya.queue.QueueManager;
 import com.duckya.yaya.ui.QueueFragment;
 import com.duckya.yaya.ui.ScanFragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -26,6 +27,9 @@ public class MainActivity extends AppCompatActivity {
         // 开启沉浸式边到边布局，让内容可以延伸到系统栏区域。
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
+        // 提前把 applicationContext 交给任务队列，后续压缩任务才能在后台安全运行。
+        QueueManager.getInstance().initialize(getApplicationContext());
 
         // 根据状态栏、导航栏高度给根布局补内边距，避免内容被系统栏遮挡。
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {

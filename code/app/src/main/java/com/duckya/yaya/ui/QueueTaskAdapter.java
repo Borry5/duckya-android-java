@@ -77,9 +77,15 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
                 : R.string.queue_action_compress);
         String status = view.getContext().getString(statusRes(task.getStatus()));
         String size = FormatUtils.formatSize(task.getMedia().getSizeBytes());
-        String saved = view.getContext().getString(R.string.queue_est_saved, FormatUtils.formatSize(task.getEstimatedSavedBytes()));
+        String saved = view.getContext().getString(R.string.queue_est_saved, FormatUtils.formatSize(task.getSavedBytes()));
+        if (task.getStatus() == QueueStatus.FAILED && task.getFailureReason() != null && !task.getFailureReason().isEmpty()) {
+            return String.format(Locale.getDefault(), "%s · %s · %s · %s", action, status, size, task.getFailureReason());
+        }
         if (task.getAction() == QueueAction.COMPRESS) {
-            String output = FormatUtils.formatSize(task.getEstimatedOutputBytes());
+            long outputBytes = task.getActualOutputBytes() > 0L
+                    ? task.getActualOutputBytes()
+                    : task.getEstimatedOutputBytes();
+            String output = FormatUtils.formatSize(outputBytes);
             return String.format(Locale.getDefault(), "%s · %s · %s -> %s · %s", action, status, size, output, saved);
         }
         return String.format(Locale.getDefault(), "%s · %s · %s · %s", action, status, size, saved);

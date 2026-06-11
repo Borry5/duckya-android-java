@@ -1,26 +1,40 @@
 package com.duckya.yaya.queue;
 
+import android.content.Context;
+
+import com.duckya.yaya.model.MediaKind;
 import com.duckya.yaya.model.MediaItemInfo;
 import com.duckya.yaya.model.QueueAction;
 import com.duckya.yaya.model.QueueStatus;
 import com.duckya.yaya.model.QueueTask;
+import com.duckya.yaya.util.ImageCompressionWorker;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class QueueManager {
     private static final QueueManager INSTANCE = new QueueManager();
 
     private final List<QueueTask> tasks = new ArrayList<>();
     private final List<QueueChangeListener> listeners = new ArrayList<>();
+    private final ExecutorService workerExecutor = Executors.newSingleThreadExecutor();
+    private final ImageCompressionWorker imageCompressionWorker = new ImageCompressionWorker();
+    private Context appContext;
     private boolean running;
+    private int runToken;
 
     public static QueueManager getInstance() {
         return INSTANCE;
     }
 
     private QueueManager() {
+    }
+
+    // 在应用启动时注入 applicationContext，供后台任务长期使用。
+    public synchronized void initialize(Context context) {
+        appContext = context.getApplicationContext();
     }
 
     public synchronized void addTask(MediaItemInfo media, QueueAction action) {
@@ -37,37 +51,32 @@ public class QueueManager {
     }
 
     public synchronized void toggleRunning() {
-        if (tasks.isEmpty()) {
+        if (tasks.isEmpty() || appContext == null) {
             return;
         }
-        running = !running;
         if (running) {
-            for (QueueTask task : tasks) {
-                if (task.getStatus() == QueueStatus.PENDING) {
-                    task.setStatus(QueueStatus.RUNNING);
-                    task.setProgress(0f);
-                    break;
-                }
-            }
-        } else {
-            for (QueueTask task : tasks) {
-                if (task.getStatus() == QueueStatus.RUNNING) {
-                    task.setStatus(QueueStatus.PENDING);
-                    task.setProgress(0f);
-                }
-            }
+            running = false;
+            runToken++;
+            resetRunningTasksToPending();
+            notifyListeners();
+            return;
         }
+        running = true;
+        int token = ++runToken;
         notifyListeners();
+        workerExecutor.execute(() -> processQueue(token));
     }
 
     public synchronized void clear() {
-        tasks.clear();
         running = false;
+        runToken++;
+        tasks.clear();
         notifyListeners();
     }
 
     public synchronized void removeTask(String taskId) {
         tasks.removeIf(task -> task.getId().equals(taskId));
+        runToken++;
         if (tasks.isEmpty()) {
             running = false;
         }
@@ -115,7 +124,7 @@ public class QueueManager {
     public synchronized long estimatedSavedBytes() {
         long total = 0L;
         for (QueueTask task : tasks) {
-            total += task.getEstimatedSavedBytes();
+            total += task.getSavedBytes();
         }
         return total;
     }
@@ -128,6 +137,141 @@ public class QueueManager {
 
     public synchronized void removeListener(QueueChangeListener listener) {
         listeners.remove(listener);
+    }
+
+    private void processQueue(int token) {
+        while (true) {
+            // 单线程顺序取任务，保证同一时刻只处理一个压缩任务。
+            QueueTask task = beginNextTask(token);
+            if (task == null) {
+                finishRunIfIdle(token);
+                return;
+            }
+            try {
+                processTask(task, token);
+            } catch (InterruptedException ignored) {
+                return;
+            }
+        }
+    }
+
+    private synchronized QueueTask beginNextTask(int token) {
+        if (!isActiveRun(token)) {
+            return null;
+        }
+        for (QueueTask task : tasks) {
+            if (task.getStatus() == QueueStatus.PENDING) {
+                task.setStatus(QueueStatus.RUNNING);
+                task.setProgress(0f);
+                task.setFailureReason(null);
+                notifyListeners();
+                return task;
+            }
+        }
+        return null;
+    }
+
+    private void processTask(QueueTask task, int token) throws InterruptedException {
+        try {
+            if (task.getAction() == QueueAction.DELETE) {
+                failTask(task.getId(), "删除功能将在第 6 阶段接入", token);
+                return;
+            }
+            // 第 5 阶段只处理图片压缩，视频转码放到后续阶段接入。
+            if (task.getMedia().getKind() != MediaKind.IMAGE) {
+                failTask(task.getId(), "视频压缩将在第 8 阶段接入", token);
+                return;
+            }
+            ImageCompressionWorker.Result result = imageCompressionWorker.compress(
+                    appContext,
+                    task.getMedia(),
+                    task.getSettings(),
+                    progress -> updateTaskProgress(task.getId(), progress, token)
+            );
+            completeTask(task.getId(), result.getOutputBytes(), token);
+        } catch (InterruptedException e) {
+            throw e;
+        } catch (Exception e) {
+            String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+            failTask(task.getId(), message, token);
+        }
+    }
+
+    private boolean updateTaskProgress(String taskId, float progress, int token) {
+        synchronized (this) {
+            if (!isActiveRun(token)) {
+                return false;
+            }
+            QueueTask task = findTask(taskId);
+            if (task == null || task.getStatus() != QueueStatus.RUNNING) {
+                return false;
+            }
+            task.setProgress(progress);
+            notifyListeners();
+            return true;
+        }
+    }
+
+    private void completeTask(String taskId, long outputBytes, int token) {
+        synchronized (this) {
+            if (!isActiveRun(token)) {
+                return;
+            }
+            QueueTask task = findTask(taskId);
+            if (task == null) {
+                return;
+            }
+            task.setActualOutputBytes(outputBytes);
+            task.setProgress(1f);
+            task.setStatus(QueueStatus.DONE);
+            notifyListeners();
+        }
+    }
+
+    private void failTask(String taskId, String reason, int token) {
+        synchronized (this) {
+            if (!isActiveRun(token)) {
+                return;
+            }
+            QueueTask task = findTask(taskId);
+            if (task == null) {
+                return;
+            }
+            task.setProgress(0f);
+            task.setStatus(QueueStatus.FAILED);
+            task.setFailureReason(reason);
+            notifyListeners();
+        }
+    }
+
+    private synchronized void finishRunIfIdle(int token) {
+        if (!isActiveRun(token)) {
+            return;
+        }
+        running = false;
+        notifyListeners();
+    }
+
+    private synchronized boolean isActiveRun(int token) {
+        return running && runToken == token;
+    }
+
+    private synchronized QueueTask findTask(String taskId) {
+        for (QueueTask task : tasks) {
+            if (task.getId().equals(taskId)) {
+                return task;
+            }
+        }
+        return null;
+    }
+
+    private void resetRunningTasksToPending() {
+        for (QueueTask task : tasks) {
+            if (task.getStatus() == QueueStatus.RUNNING) {
+                task.setStatus(QueueStatus.PENDING);
+                task.setProgress(0f);
+            }
+        }
     }
 
     private void notifyListeners() {

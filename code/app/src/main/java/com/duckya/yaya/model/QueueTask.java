@@ -88,4 +88,14 @@ public class QueueTask {
         }
         return Math.max(media.getSizeBytes() - estimatedOutputBytes, 0L);
     }
+
+    public long getSavedBytes() {
+        if (action == QueueAction.DELETE) {
+            return media.getSizeBytes();
+        }
+        if (actualOutputBytes > 0L) {
+            return Math.max(media.getSizeBytes() - actualOutputBytes, 0L);
+        }
+        return getEstimatedSavedBytes();
+    }
 }
