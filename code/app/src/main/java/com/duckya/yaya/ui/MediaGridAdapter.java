@@ -4,7 +4,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -196,8 +195,6 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
     private void updateSelectionUi(MediaViewHolder holder, MediaItemInfo item) {
         boolean selected = selectedUris != null && selectedUris.contains(item.getUri().toString());
-        holder.selectionBadge.setVisibility(selectionMode ? View.VISIBLE : View.GONE);
-        holder.selectionBadge.setChecked(selected);
         holder.itemView.setAlpha(!selectionMode || selected ? 1.0f : 0.72f);
     }
 
@@ -254,14 +251,12 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         final ImageView thumbnail;
         final TextView kindBadge;
         final TextView sizeBadge;
-        final CheckBox selectionBadge;
 
         MediaViewHolder(@NonNull View itemView) {
             super(itemView);
             thumbnail = itemView.findViewById(R.id.media_thumbnail);
             kindBadge = itemView.findViewById(R.id.media_kind_badge);
             sizeBadge = itemView.findViewById(R.id.media_size_badge);
-            selectionBadge = itemView.findViewById(R.id.media_selection_badge);
         }
     }
 
