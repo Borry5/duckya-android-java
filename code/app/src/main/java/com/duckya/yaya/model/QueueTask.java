@@ -6,7 +6,7 @@ public class QueueTask {
     private final String id;
     private final MediaItemInfo media;
     private final QueueAction action;
-    private final CompressionSettings settings;
+    private CompressionSettings settings;
     private QueueStatus status;
     private float progress;
     private long estimatedOutputBytes;
@@ -17,17 +17,25 @@ public class QueueTask {
         this.id = UUID.randomUUID().toString();
         this.media = media;
         this.action = action;
-        this.settings = CompressionSettings.balanced();
+        this.settings = CompressionSettings.light();
         this.status = QueueStatus.PENDING;
         this.progress = 0f;
-        this.estimatedOutputBytes = estimateOutputBytes(media, action);
+        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings);
     }
 
-    private long estimateOutputBytes(MediaItemInfo media, QueueAction action) {
+    private long estimateOutputBytes(MediaItemInfo media, QueueAction action, CompressionSettings settings) {
         if (action == QueueAction.DELETE) {
             return 0L;
         }
-        return Math.max((long) (media.getSizeBytes() * 0.58), 1L);
+        double ratio;
+        if (settings.getPreset() == CompressionPreset.STRONG) {
+            ratio = 0.38;
+        } else if (settings.getPreset() == CompressionPreset.BALANCED) {
+            ratio = 0.58;
+        } else {
+            ratio = 0.78;
+        }
+        return Math.max((long) (media.getSizeBytes() * ratio), 1L);
     }
 
     public String getId() {
@@ -44,6 +52,14 @@ public class QueueTask {
 
     public CompressionSettings getSettings() {
         return settings;
+    }
+
+    public void setSettings(CompressionSettings settings) {
+        this.settings = settings;
+        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings);
+        if (actualOutputBytes > 0L) {
+            actualOutputBytes = 0L;
+        }
     }
 
     public QueueStatus getStatus() {

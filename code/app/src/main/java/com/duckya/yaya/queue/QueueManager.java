@@ -7,6 +7,7 @@ import com.duckya.yaya.model.MediaItemInfo;
 import com.duckya.yaya.model.QueueAction;
 import com.duckya.yaya.model.QueueStatus;
 import com.duckya.yaya.model.QueueTask;
+import com.duckya.yaya.model.CompressionSettings;
 import com.duckya.yaya.util.ImageCompressionWorker;
 
 import java.util.ArrayList;
@@ -109,6 +110,18 @@ public class QueueManager {
             tasks.add(0, task);
             notifyListeners();
         }
+    }
+
+    public synchronized void updateTaskSettings(String taskId, CompressionSettings settings) {
+        QueueTask task = findTask(taskId);
+        if (task == null || task.getAction() != QueueAction.COMPRESS || task.getStatus() == QueueStatus.RUNNING) {
+            return;
+        }
+        task.setSettings(settings);
+        task.setStatus(QueueStatus.PENDING);
+        task.setProgress(0f);
+        task.setFailureReason(null);
+        notifyListeners();
     }
 
     public synchronized int pendingCount() {
