@@ -21,6 +21,12 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
  * 负责加载主布局、处理系统边距，并通过底部导航切换“浏览本地”和“任务队列”页面。
  */
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG_SCAN = "main_scan";
+    private static final String TAG_QUEUE = "main_queue";
+
+    private Fragment scanFragment;
+    private Fragment queueFragment;
+    private Fragment activeFragment;
 
     @Override
     protected void attachBaseContext(Context newBase) {
@@ -53,15 +59,17 @@ public class MainActivity extends AppCompatActivity {
         bottomNavigation.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
             if (itemId == R.id.navigation_scan) {
-                showFragment(new ScanFragment());
+                showFragment(R.id.navigation_scan);
                 return true;
             }
             if (itemId == R.id.navigation_queue) {
-                showFragment(new QueueFragment());
+                showFragment(R.id.navigation_queue);
                 return true;
             }
             return false;
         });
+
+        restoreFragmentsIfNeeded();
 
         // 首次进入应用时默认展示相册浏览页；旋转屏幕等恢复场景交给系统保留当前页面。
         if (savedInstanceState == null) {
@@ -69,11 +77,49 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 将指定 Fragment 放入主容器，实现两个主页面之间的切换。
-    private void showFragment(Fragment fragment) {
-        getSupportFragmentManager()
-                .beginTransaction()
-                .replace(R.id.fragment_container, fragment)
-                .commit();
+    // 复用两个主 Fragment，避免切页时反复销毁相册网格和重新加载缩略图。
+    private void showFragment(int navigationId) {
+        Fragment targetFragment = ensureFragment(navigationId);
+        if (targetFragment == activeFragment) {
+            return;
+        }
+        androidx.fragment.app.FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+        if (activeFragment != null) {
+            transaction.hide(activeFragment);
+        }
+        if (!targetFragment.isAdded()) {
+            transaction.add(
+                    R.id.fragment_container,
+                    targetFragment,
+                    navigationId == R.id.navigation_scan ? TAG_SCAN : TAG_QUEUE
+            );
+        } else {
+            transaction.show(targetFragment);
+        }
+        activeFragment = targetFragment;
+        transaction.commit();
+    }
+
+    private Fragment ensureFragment(int navigationId) {
+        if (navigationId == R.id.navigation_scan) {
+            if (scanFragment == null) {
+                scanFragment = new ScanFragment();
+            }
+            return scanFragment;
+        }
+        if (queueFragment == null) {
+            queueFragment = new QueueFragment();
+        }
+        return queueFragment;
+    }
+
+    private void restoreFragmentsIfNeeded() {
+        scanFragment = getSupportFragmentManager().findFragmentByTag(TAG_SCAN);
+        queueFragment = getSupportFragmentManager().findFragmentByTag(TAG_QUEUE);
+        if (queueFragment != null && !queueFragment.isHidden()) {
+            activeFragment = queueFragment;
+        } else if (scanFragment != null && !scanFragment.isHidden()) {
+            activeFragment = scanFragment;
+        }
     }
 }

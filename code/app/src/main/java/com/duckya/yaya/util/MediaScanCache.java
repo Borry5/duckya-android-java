@@ -21,8 +21,14 @@ import java.util.List;
 // 将上一次 MediaStore 扫描结果保存到 app 私有目录，避免页面切换时反复重扫。
 public class MediaScanCache {
     private static final String CACHE_FILE_NAME = "media_scan_cache.json";
+    private static List<MediaItemInfo> memoryItems;
 
     public List<MediaItemInfo> load(Context context) {
+        synchronized (MediaScanCache.class) {
+            if (memoryItems != null) {
+                return new ArrayList<>(memoryItems);
+            }
+        }
         File cacheFile = cacheFile(context);
         if (!cacheFile.exists()) {
             return new ArrayList<>();
@@ -34,6 +40,7 @@ public class MediaScanCache {
                 JSONObject object = array.getJSONObject(i);
                 items.add(fromJson(object));
             }
+            updateMemoryItems(items);
             return items;
         } catch (IOException | JSONException | IllegalArgumentException e) {
             return new ArrayList<>();
@@ -41,6 +48,7 @@ public class MediaScanCache {
     }
 
     public void save(Context context, List<MediaItemInfo> items) {
+        updateMemoryItems(items);
         JSONArray array = new JSONArray();
         for (MediaItemInfo item : items) {
             array.put(toJson(item));
@@ -54,6 +62,12 @@ public class MediaScanCache {
 
     private File cacheFile(Context context) {
         return new File(context.getFilesDir(), CACHE_FILE_NAME);
+    }
+
+    private void updateMemoryItems(List<MediaItemInfo> items) {
+        synchronized (MediaScanCache.class) {
+            memoryItems = new ArrayList<>(items);
+        }
     }
 
     private String readAll(File file) throws IOException {
