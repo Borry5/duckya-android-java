@@ -29,6 +29,12 @@ import java.util.Locale;
 public class ImageCompressionWorker {
     private static final String COMPARISON_ALBUM_PATH = "DCIM/压缩对照";
     private static final String COMPARISON_TIME_PATTERN = "yyyyMMdd_HHmmss_SSS";
+    private static final long VISUAL_LOSSLESS_FULL_SIZE_PIXELS = 30_000_000L;
+    private static final long VISUAL_LOSSLESS_GIANT_PIXELS = 60_000_000L;
+    private static final int VISUAL_LOSSLESS_MAX_LONG_SIDE = 7000;
+    private static final int VISUAL_QUALITY_HIGH_DETAIL = 96;
+    private static final int VISUAL_QUALITY_NORMAL = 94;
+    private static final int VISUAL_QUALITY_LOW_DETAIL = 92;
     @SuppressWarnings("deprecation")
     private static final String[] EXIF_TAGS_TO_COPY = new String[]{
             ExifInterface.TAG_MAKE,
@@ -112,13 +118,14 @@ public class ImageCompressionWorker {
         if (sourceWidth <= 0 || sourceHeight <= 0) {
             throw new IOException("无法读取图片尺寸");
         }
+        CompressionPlan compressionPlan = buildCompressionPlan(settings, sourceWidth, sourceHeight);
 
         if (!publishProgress(callback, 0.18f)) {
             throw new InterruptedException("compression cancelled");
         }
 
         BitmapFactory.Options decodeOptions = new BitmapFactory.Options();
-        decodeOptions.inSampleSize = calculateInSampleSize(sourceWidth, sourceHeight, settings.getMaxLongSide());
+        decodeOptions.inSampleSize = calculateInSampleSize(sourceWidth, sourceHeight, compressionPlan.maxLongSide);
         Bitmap decodedBitmap = decodeBitmap(context.getContentResolver(), item.getUri(), decodeOptions);
         if (decodedBitmap == null) {
             throw new IOException("无法解码图片内容");
@@ -129,10 +136,11 @@ public class ImageCompressionWorker {
             throw new InterruptedException("compression cancelled");
         }
 
-        Bitmap outputBitmap = scaleBitmapIfNeeded(decodedBitmap, settings.getMaxLongSide());
+        Bitmap outputBitmap = scaleBitmapIfNeeded(decodedBitmap, compressionPlan.maxLongSide);
         if (outputBitmap != decodedBitmap) {
             decodedBitmap.recycle();
         }
+        compressionPlan.jpegQuality = resolveJpegQuality(settings, outputBitmap, compressionPlan.jpegQuality);
 
         if (!publishProgress(callback, 0.56f)) {
             outputBitmap.recycle();
@@ -141,7 +149,7 @@ public class ImageCompressionWorker {
 
         File tempFile = File.createTempFile("duckya_compress_", ".jpg", context.getCacheDir());
         try {
-            compressToTempFile(outputBitmap, settings, tempFile);
+            compressToTempFile(outputBitmap, compressionPlan.jpegQuality, tempFile);
             copyExifToCompressedFile(context, item.getUri(), tempFile);
             outputBitmap.recycle();
 
@@ -189,6 +197,78 @@ public class ImageCompressionWorker {
         }
     }
 
+    private CompressionPlan buildCompressionPlan(CompressionSettings settings, int width, int height) {
+        if (!settings.isAdaptiveVisualLossless()) {
+            return new CompressionPlan(settings.getMaxLongSide(), settings.getJpegQuality());
+        }
+
+        long pixels = (long) width * (long) height;
+        int longSide = Math.max(width, height);
+        int targetLongSide = longSide;
+        if (pixels > VISUAL_LOSSLESS_GIANT_PIXELS || longSide > VISUAL_LOSSLESS_MAX_LONG_SIDE) {
+            targetLongSide = VISUAL_LOSSLESS_MAX_LONG_SIDE;
+        } else if (pixels > VISUAL_LOSSLESS_FULL_SIZE_PIXELS) {
+            targetLongSide = Math.min(longSide, VISUAL_LOSSLESS_MAX_LONG_SIDE);
+        }
+        return new CompressionPlan(targetLongSide, VISUAL_QUALITY_NORMAL);
+    }
+
+    private int resolveJpegQuality(CompressionSettings settings, Bitmap bitmap, int fallbackQuality) {
+        if (!settings.isAdaptiveVisualLossless()) {
+            return fallbackQuality;
+        }
+        ImageDetailLevel detailLevel = analyzeDetailLevel(bitmap);
+        if (detailLevel == ImageDetailLevel.HIGH) {
+            return VISUAL_QUALITY_HIGH_DETAIL;
+        }
+        if (detailLevel == ImageDetailLevel.LOW) {
+            return VISUAL_QUALITY_LOW_DETAIL;
+        }
+        return VISUAL_QUALITY_NORMAL;
+    }
+
+    private ImageDetailLevel analyzeDetailLevel(Bitmap bitmap) {
+        // 抽样估算亮度边缘和整体变化，避免逐像素扫描拖慢超大图。
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        int step = Math.max(Math.min(width, height) / 72, 1);
+        long count = 0L;
+        double lumaSum = 0.0;
+        double lumaSquareSum = 0.0;
+        double edgeSum = 0.0;
+        for (int y = 0; y < height - step; y += step) {
+            for (int x = 0; x < width - step; x += step) {
+                int luma = lumaOf(bitmap.getPixel(x, y));
+                int rightLuma = lumaOf(bitmap.getPixel(x + step, y));
+                int downLuma = lumaOf(bitmap.getPixel(x, y + step));
+                lumaSum += luma;
+                lumaSquareSum += (double) luma * luma;
+                edgeSum += Math.abs(luma - rightLuma) + Math.abs(luma - downLuma);
+                count++;
+            }
+        }
+        if (count == 0L) {
+            return ImageDetailLevel.NORMAL;
+        }
+        double averageLuma = lumaSum / count;
+        double variance = Math.max((lumaSquareSum / count) - averageLuma * averageLuma, 0.0);
+        double averageEdge = edgeSum / (count * 2.0);
+        if (averageEdge >= 11.0 || variance >= 1600.0) {
+            return ImageDetailLevel.HIGH;
+        }
+        if (averageEdge <= 4.0 && variance <= 320.0) {
+            return ImageDetailLevel.LOW;
+        }
+        return ImageDetailLevel.NORMAL;
+    }
+
+    private int lumaOf(int color) {
+        int red = (color >> 16) & 0xFF;
+        int green = (color >> 8) & 0xFF;
+        int blue = color & 0xFF;
+        return (red * 299 + green * 587 + blue * 114) / 1000;
+    }
+
     private int calculateInSampleSize(int width, int height, int maxLongSide) {
         int sampleSize = 1;
         int longSide = Math.max(width, height);
@@ -211,9 +291,9 @@ public class ImageCompressionWorker {
         return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
     }
 
-    private void compressToTempFile(Bitmap bitmap, CompressionSettings settings, File tempFile) throws IOException {
+    private void compressToTempFile(Bitmap bitmap, int jpegQuality, File tempFile) throws IOException {
         try (FileOutputStream outputStream = new FileOutputStream(tempFile, false)) {
-            boolean success = bitmap.compress(Bitmap.CompressFormat.JPEG, settings.getJpegQuality(), outputStream);
+            boolean success = bitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality, outputStream);
             if (!success) {
                 throw new IOException("写入压缩文件失败");
             }
@@ -376,6 +456,22 @@ public class ImageCompressionWorker {
             this.compressedName = compressedName;
             this.originalMimeType = originalMimeType;
         }
+    }
+
+    private static class CompressionPlan {
+        private final int maxLongSide;
+        private int jpegQuality;
+
+        private CompressionPlan(int maxLongSide, int jpegQuality) {
+            this.maxLongSide = Math.max(maxLongSide, 1);
+            this.jpegQuality = jpegQuality;
+        }
+    }
+
+    private enum ImageDetailLevel {
+        LOW,
+        NORMAL,
+        HIGH
     }
 
     private boolean publishProgress(@Nullable ProgressCallback callback, float progress) {

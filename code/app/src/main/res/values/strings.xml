@@ -70,8 +70,8 @@
     <string name="queue_action_compress">压缩</string>
     <string name="queue_action_delete">删除</string>
     <string name="queue_preset_light">视觉无损</string>
-    <string name="queue_preset_strong">强力压缩</string>
-    <string name="queue_preset_strong_subtitle">（朋友圈画质）</string>
+    <string name="queue_preset_strong">朋友圈画质</string>
+    <string name="queue_preset_strong_subtitle">（适合聊天分享）</string>
     <string name="queue_output_estimated">约 %1$s（预估）</string>
     <string name="queue_delete_hint">删除任务将在第 6 阶段接入</string>
     <string name="queue_status_pending">待处理</string>

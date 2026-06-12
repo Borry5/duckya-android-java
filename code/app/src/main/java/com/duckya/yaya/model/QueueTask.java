@@ -27,13 +27,18 @@ public class QueueTask {
         if (action == QueueAction.DELETE) {
             return 0L;
         }
+        // 队列里只是预估体积，真实结果仍以压缩完成后的文件大小为准。
         double ratio;
         if (settings.getPreset() == CompressionPreset.STRONG) {
-            ratio = 0.38;
+            ratio = 0.18;
         } else if (settings.getPreset() == CompressionPreset.BALANCED) {
             ratio = 0.58;
+        } else if (media.getSizeBytes() >= 20L * 1024L * 1024L) {
+            ratio = 0.45;
+        } else if (media.getSizeBytes() >= 8L * 1024L * 1024L) {
+            ratio = 0.62;
         } else {
-            ratio = 0.78;
+            ratio = 0.86;
         }
         return Math.max((long) (media.getSizeBytes() * ratio), 1L);
     }
