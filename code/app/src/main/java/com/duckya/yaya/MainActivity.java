@@ -1,5 +1,7 @@
 package com.duckya.yaya;
 
+import android.content.Context;
+import android.content.res.Configuration;
 import android.os.Bundle;
 
 import androidx.activity.EdgeToEdge;
@@ -19,6 +21,14 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
  * 负责加载主布局、处理系统边距，并通过底部导航切换“浏览本地”和“任务队列”页面。
  */
 public class MainActivity extends AppCompatActivity {
+
+    @Override
+    protected void attachBaseContext(Context newBase) {
+        // 固定应用内字体缩放，避免系统大字号把当前界面布局撑得过大。
+        Configuration configuration = new Configuration(newBase.getResources().getConfiguration());
+        configuration.fontScale = 1.0f;
+        super.attachBaseContext(newBase.createConfigurationContext(configuration));
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
