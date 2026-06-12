@@ -20,11 +20,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Locale;
 
 // 负责执行单张图片压缩，并把原图副本和压缩结果写回系统相册。
 public class ImageCompressionWorker {
     private static final String COMPARISON_ALBUM_PATH = "DCIM/压缩对照";
+    private static final String COMPARISON_TIME_PATTERN = "yyyyMMdd_HHmmss_SSS";
 
     public interface ProgressCallback {
         boolean onProgress(float progress);
@@ -98,13 +101,14 @@ public class ImageCompressionWorker {
                 throw new InterruptedException("compression cancelled");
             }
 
-            // 保存一组对照文件，方便用户在系统相册里直接比较压缩前后效果。
-            saveOriginalToComparisonAlbum(context, item);
+            // 同一组对照文件只生成一次批次名，避免原图和压缩图被其他任务混淆。
+            ComparisonFileNames fileNames = buildComparisonFileNames(item);
+            saveOriginalToComparisonAlbum(context, item, fileNames);
             if (!publishProgress(callback, 0.91f)) {
                 throw new InterruptedException("compression cancelled");
             }
 
-            Uri savedUri = saveCompressedToComparisonAlbum(context, item.getName(), tempFile);
+            Uri savedUri = saveCompressedToComparisonAlbum(context, fileNames, tempFile);
             if (!publishProgress(callback, 1.0f)) {
                 throw new InterruptedException("compression cancelled");
             }
@@ -169,20 +173,20 @@ public class ImageCompressionWorker {
         }
     }
 
-    private Uri saveOriginalToComparisonAlbum(Context context, MediaItemInfo item) throws IOException {
-        String originalName = buildOriginalFileName(item.getName());
-        String mimeType = inferImageMimeType(originalName);
+    private Uri saveOriginalToComparisonAlbum(Context context, MediaItemInfo item, ComparisonFileNames fileNames)
+            throws IOException {
         try (InputStream inputStream = context.getContentResolver().openInputStream(item.getUri())) {
             if (inputStream == null) {
                 throw new IOException("无法读取原图副本");
             }
-            return copyStreamToGallery(context, inputStream, originalName, mimeType);
+            return copyStreamToGallery(context, inputStream, fileNames.originalName, fileNames.originalMimeType);
         }
     }
 
-    private Uri saveCompressedToComparisonAlbum(Context context, String sourceName, File tempFile) throws IOException {
+    private Uri saveCompressedToComparisonAlbum(Context context, ComparisonFileNames fileNames, File tempFile)
+            throws IOException {
         try (InputStream inputStream = new FileInputStream(tempFile)) {
-            return copyStreamToGallery(context, inputStream, buildCompressedFileName(sourceName), "image/jpeg");
+            return copyStreamToGallery(context, inputStream, fileNames.compressedName, "image/jpeg");
         }
     }
 
@@ -224,16 +228,23 @@ public class ImageCompressionWorker {
         }
     }
 
-    private String buildOriginalFileName(String sourceName) {
-        String extension = extractExtension(sourceName, "jpg");
-        return buildBaseName(sourceName) + "_original." + extension;
+    private ComparisonFileNames buildComparisonFileNames(MediaItemInfo item) {
+        String extension = extractExtension(item.getName(), "jpg");
+        String batchBaseName = buildComparisonBatchBaseName(item);
+        return new ComparisonFileNames(
+                batchBaseName + "_原始版本." + extension,
+                batchBaseName + "_压缩版本.jpg",
+                inferImageMimeType(extension)
+        );
     }
 
-    private String buildCompressedFileName(String sourceName) {
-        return buildBaseName(sourceName) + "_compressed.jpg";
+    private String buildComparisonBatchBaseName(MediaItemInfo item) {
+        String timeText = new SimpleDateFormat(COMPARISON_TIME_PATTERN, Locale.US).format(new Date());
+        String sourceKey = buildShortSourceKey(item);
+        return buildBaseName(item.getName()) + "_" + timeText + "_" + sourceKey;
     }
 
-    private String buildBaseName(String sourceName) {
+    private String buildBaseName(@Nullable String sourceName) {
         String baseName = sourceName == null ? "image" : sourceName.trim();
         int dotIndex = baseName.lastIndexOf('.');
         if (dotIndex > 0) {
@@ -246,7 +257,7 @@ public class ImageCompressionWorker {
         return baseName;
     }
 
-    private String extractExtension(String sourceName, String fallback) {
+    private String extractExtension(@Nullable String sourceName, String fallback) {
         if (sourceName == null) {
             return fallback;
         }
@@ -261,8 +272,13 @@ public class ImageCompressionWorker {
         return extension.isEmpty() ? fallback : extension;
     }
 
-    private String inferImageMimeType(String fileName) {
-        String extension = extractExtension(fileName, "jpg");
+    private String buildShortSourceKey(MediaItemInfo item) {
+        // 用原图 Uri、大小和修改时间生成短标识，同名照片也能稳定区分。
+        String rawKey = item.getUri() + "|" + item.getSizeBytes() + "|" + item.getModifiedTimeMs();
+        return String.format(Locale.US, "%08x", rawKey.hashCode());
+    }
+
+    private String inferImageMimeType(String extension) {
         if ("png".equals(extension)) {
             return "image/png";
         }
@@ -276,6 +292,18 @@ public class ImageCompressionWorker {
             return "image/heif";
         }
         return "image/jpeg";
+    }
+
+    private static class ComparisonFileNames {
+        private final String originalName;
+        private final String compressedName;
+        private final String originalMimeType;
+
+        private ComparisonFileNames(String originalName, String compressedName, String originalMimeType) {
+            this.originalName = originalName;
+            this.compressedName = compressedName;
+            this.originalMimeType = originalMimeType;
+        }
     }
 
     private boolean publishProgress(@Nullable ProgressCallback callback, float progress) {
