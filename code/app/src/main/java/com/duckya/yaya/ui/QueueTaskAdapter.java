@@ -23,8 +23,11 @@ import com.duckya.yaya.util.ThumbnailLoader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.TaskViewHolder> {
+    private static final String PAYLOAD_DYNAMIC = "payload_dynamic";
+
     public interface Listener {
         void onCancel(QueueTask task);
 
@@ -36,6 +39,7 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
     }
 
     private final List<QueueTask> tasks = new ArrayList<>();
+    private final List<TaskSnapshot> snapshots = new ArrayList<>();
     private final Listener listener;
 
     public QueueTaskAdapter(Listener listener) {
@@ -43,9 +47,27 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
     }
 
     public void submitList(List<QueueTask> newTasks) {
+        List<TaskSnapshot> newSnapshots = buildSnapshots(newTasks);
+        if (!hasSameStructure(newSnapshots)) {
+            tasks.clear();
+            tasks.addAll(newTasks);
+            snapshots.clear();
+            snapshots.addAll(newSnapshots);
+            notifyDataSetChanged();
+            return;
+        }
+
         tasks.clear();
         tasks.addAll(newTasks);
-        notifyDataSetChanged();
+        for (int i = 0; i < newSnapshots.size(); i++) {
+            TaskSnapshot oldSnapshot = snapshots.get(i);
+            TaskSnapshot newSnapshot = newSnapshots.get(i);
+            if (!oldSnapshot.hasSameDynamicState(newSnapshot)) {
+                notifyItemChanged(i, PAYLOAD_DYNAMIC);
+            }
+        }
+        snapshots.clear();
+        snapshots.addAll(newSnapshots);
     }
 
     @NonNull
@@ -58,13 +80,30 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
     @Override
     public void onBindViewHolder(@NonNull TaskViewHolder holder, int position) {
         QueueTask task = tasks.get(position);
-        holder.statusText.setText(holder.itemView.getContext().getString(statusRes(task.getStatus())));
         holder.sourceSizeText.setText(FormatUtils.formatSize(task.getMedia().getSizeBytes()));
+        ThumbnailLoader.loadInto(holder.thumbnail.getContext(), task.getMedia(), holder.thumbnail);
+        bindDynamicState(holder, task);
+    }
+
+    @Override
+    public void onBindViewHolder(
+            @NonNull TaskViewHolder holder,
+            int position,
+            @NonNull List<Object> payloads
+    ) {
+        if (payloads.contains(PAYLOAD_DYNAMIC)) {
+            bindDynamicState(holder, tasks.get(position));
+            return;
+        }
+        super.onBindViewHolder(holder, position, payloads);
+    }
+
+    private void bindDynamicState(TaskViewHolder holder, QueueTask task) {
+        holder.statusText.setText(holder.itemView.getContext().getString(statusRes(task.getStatus())));
         holder.outputSizeText.setText(buildOutputText(holder.itemView, task));
         holder.metaText.setText(buildMetaText(holder.itemView, task));
         bindBitrateText(holder, task);
         holder.progressBar.setProgress(Math.round(task.getProgress() * 100f));
-        ThumbnailLoader.loadInto(holder.thumbnail.getContext(), task.getMedia(), holder.thumbnail);
         holder.cancelButton.setVisibility(task.getStatus() == QueueStatus.DONE ? View.GONE : View.VISIBLE);
         holder.retryButton.setVisibility(task.getStatus() == QueueStatus.FAILED ? View.VISIBLE : View.GONE);
         holder.prioritizeButton.setVisibility(task.getStatus() == QueueStatus.PENDING ? View.VISIBLE : View.GONE);
@@ -140,6 +179,55 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
             return R.string.queue_status_failed;
         }
         return R.string.queue_status_pending;
+    }
+
+    private List<TaskSnapshot> buildSnapshots(List<QueueTask> sourceTasks) {
+        List<TaskSnapshot> result = new ArrayList<>();
+        for (QueueTask task : sourceTasks) {
+            result.add(new TaskSnapshot(task));
+        }
+        return result;
+    }
+
+    private boolean hasSameStructure(List<TaskSnapshot> newSnapshots) {
+        if (snapshots.size() != newSnapshots.size()) {
+            return false;
+        }
+        for (int i = 0; i < snapshots.size(); i++) {
+            if (!Objects.equals(snapshots.get(i).id, newSnapshots.get(i).id)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static class TaskSnapshot {
+        private final String id;
+        private final QueueStatus status;
+        private final float progress;
+        private final long estimatedOutputBytes;
+        private final long actualOutputBytes;
+        private final String failureReason;
+        private final com.duckya.yaya.model.CompressionPreset preset;
+
+        TaskSnapshot(QueueTask task) {
+            id = task.getId();
+            status = task.getStatus();
+            progress = task.getProgress();
+            estimatedOutputBytes = task.getEstimatedOutputBytes();
+            actualOutputBytes = task.getActualOutputBytes();
+            failureReason = task.getFailureReason();
+            preset = task.getSettings().getPreset();
+        }
+
+        private boolean hasSameDynamicState(TaskSnapshot other) {
+            return status == other.status
+                    && Float.compare(progress, other.progress) == 0
+                    && estimatedOutputBytes == other.estimatedOutputBytes
+                    && actualOutputBytes == other.actualOutputBytes
+                    && Objects.equals(failureReason, other.failureReason)
+                    && preset == other.preset;
+        }
     }
 
     static class TaskViewHolder extends RecyclerView.ViewHolder {

@@ -13,6 +13,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.SimpleItemAnimator;
 
 import com.duckya.yaya.R;
 import com.duckya.yaya.model.CompressionSettings;
@@ -71,6 +72,10 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             }
         });
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        if (recyclerView.getItemAnimator() instanceof SimpleItemAnimator) {
+            // 进度频繁更新时关闭 change 动画，避免缩略图和卡片产生闪动。
+            ((SimpleItemAnimator) recyclerView.getItemAnimator()).setSupportsChangeAnimations(false);
+        }
         recyclerView.setAdapter(adapter);
         clearButton.setOnClickListener(v -> queueManager.clear());
         startButton.setOnClickListener(v -> queueManager.toggleRunning());
