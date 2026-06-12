@@ -62,6 +62,19 @@
     <string name="queue_clear">清空</string>
     <string name="queue_start">开始</string>
     <string name="queue_pause">暂停</string>
+    <string name="queue_saved_space">已节省空间</string>
+    <string name="queue_remaining_estimate">预计剩余</string>
+    <string name="queue_completed_tasks">已完成的任务</string>
+    <string name="queue_completed_count">%1$d 项</string>
+    <string name="queue_completed_empty">暂无已完成的任务</string>
+    <string name="queue_completed_clear">清空已完成任务</string>
+    <string name="queue_recycle_original_image">回收原图</string>
+    <string name="queue_recycle_compressed_image">回收压缩图</string>
+    <string name="queue_recycle_original_video">回收原视频</string>
+    <string name="queue_recycle_compressed_video">回收压缩视频</string>
+    <string name="queue_recompress">重新压缩</string>
+    <string name="queue_recycle_pending">回收功能将在 5.8.4 接入系统授权</string>
+    <string name="queue_recompress_added">已重新加入压缩队列</string>
     <string name="queue_settings">设置</string>
     <string name="queue_settings_title">压缩档位</string>
     <string name="queue_settings_close">关闭</string>
@@ -82,6 +95,7 @@
     <string name="queue_retry">重试</string>
     <string name="queue_prioritize">优先</string>
     <string name="queue_est_saved">预计省 %1$s</string>
+    <string name="queue_saved_done">已节省 %1$s</string>
     <string name="scan_menu_add_compress">添加到压缩队列</string>
     <string name="scan_menu_add_delete">添加到删除队列</string>
 </resources>

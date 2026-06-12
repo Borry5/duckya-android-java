@@ -36,14 +36,26 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         void onPrioritize(QueueTask task);
 
         void onOpenSettings(QueueTask task);
+
+        void onRecycleOriginal(QueueTask task);
+
+        void onRecycleOutput(QueueTask task);
+
+        void onRecompress(QueueTask task);
     }
 
     private final List<QueueTask> tasks = new ArrayList<>();
     private final List<TaskSnapshot> snapshots = new ArrayList<>();
     private final Listener listener;
+    private final boolean completedMode;
 
     public QueueTaskAdapter(Listener listener) {
+        this(listener, false);
+    }
+
+    public QueueTaskAdapter(Listener listener, boolean completedMode) {
         this.listener = listener;
+        this.completedMode = completedMode;
     }
 
     public void submitList(List<QueueTask> newTasks) {
@@ -104,14 +116,20 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         holder.metaText.setText(buildMetaText(holder.itemView, task));
         bindBitrateText(holder, task);
         holder.progressBar.setProgress(Math.round(task.getProgress() * 100f));
-        holder.cancelButton.setVisibility(task.getStatus() == QueueStatus.DONE ? View.GONE : View.VISIBLE);
-        holder.retryButton.setVisibility(task.getStatus() == QueueStatus.FAILED ? View.VISIBLE : View.GONE);
-        holder.prioritizeButton.setVisibility(task.getStatus() == QueueStatus.PENDING ? View.VISIBLE : View.GONE);
+        holder.inlineActionRow.setVisibility(completedMode ? View.GONE : View.VISIBLE);
+        holder.completedActionRow.setVisibility(completedMode ? View.VISIBLE : View.GONE);
+        holder.cancelButton.setVisibility(!completedMode && task.getStatus() != QueueStatus.DONE ? View.VISIBLE : View.GONE);
+        holder.retryButton.setVisibility(!completedMode && task.getStatus() == QueueStatus.FAILED ? View.VISIBLE : View.GONE);
+        holder.prioritizeButton.setVisibility(!completedMode && task.getStatus() == QueueStatus.PENDING ? View.VISIBLE : View.GONE);
         holder.settingsButton.setVisibility(task.getAction() == QueueAction.COMPRESS ? View.VISIBLE : View.GONE);
+        bindCompletedActions(holder, task);
         holder.cancelButton.setOnClickListener(v -> listener.onCancel(task));
         holder.retryButton.setOnClickListener(v -> listener.onRetry(task));
         holder.prioritizeButton.setOnClickListener(v -> listener.onPrioritize(task));
         holder.settingsButton.setOnClickListener(v -> listener.onOpenSettings(task));
+        holder.recycleOriginalButton.setOnClickListener(v -> listener.onRecycleOriginal(task));
+        holder.recycleOutputButton.setOnClickListener(v -> listener.onRecycleOutput(task));
+        holder.recompressButton.setOnClickListener(v -> listener.onRecompress(task));
     }
 
     @Override
@@ -120,7 +138,8 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
     }
 
     private String buildMetaText(View view, QueueTask task) {
-        String saved = view.getContext().getString(R.string.queue_est_saved, FormatUtils.formatSize(task.getSavedBytes()));
+        int savedRes = task.getStatus() == QueueStatus.DONE ? R.string.queue_saved_done : R.string.queue_est_saved;
+        String saved = view.getContext().getString(savedRes, FormatUtils.formatSize(task.getSavedBytes()));
         if (task.getStatus() == QueueStatus.FAILED && task.getFailureReason() != null && !task.getFailureReason().isEmpty()) {
             return task.getFailureReason();
         }
@@ -128,6 +147,20 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
             return view.getContext().getString(R.string.queue_delete_hint);
         }
         return String.format(Locale.getDefault(), "%s · %s", presetLabel(view, task), saved);
+    }
+
+    private void bindCompletedActions(TaskViewHolder holder, QueueTask task) {
+        if (!completedMode) {
+            return;
+        }
+        boolean isVideo = task.getMedia().getKind() == MediaKind.VIDEO;
+        holder.recycleOriginalButton.setText(isVideo
+                ? R.string.queue_recycle_original_video
+                : R.string.queue_recycle_original_image);
+        holder.recycleOutputButton.setText(isVideo
+                ? R.string.queue_recycle_compressed_video
+                : R.string.queue_recycle_compressed_image);
+        holder.recompressButton.setEnabled(task.getAction() == QueueAction.COMPRESS);
     }
 
     private String buildOutputText(View view, QueueTask task) {
@@ -238,10 +271,15 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         final TextView bitrateText;
         final TextView metaText;
         final ProgressBar progressBar;
+        final View inlineActionRow;
+        final View completedActionRow;
         final ImageButton settingsButton;
         final Button cancelButton;
         final Button retryButton;
         final Button prioritizeButton;
+        final Button recycleOriginalButton;
+        final Button recycleOutputButton;
+        final Button recompressButton;
 
         TaskViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -252,10 +290,15 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
             bitrateText = itemView.findViewById(R.id.queue_bitrate_text);
             metaText = itemView.findViewById(R.id.queue_task_meta);
             progressBar = itemView.findViewById(R.id.queue_task_progress);
+            inlineActionRow = itemView.findViewById(R.id.queue_inline_action_row);
+            completedActionRow = itemView.findViewById(R.id.queue_completed_action_row);
             settingsButton = itemView.findViewById(R.id.queue_settings_button);
             cancelButton = itemView.findViewById(R.id.queue_cancel_button);
             retryButton = itemView.findViewById(R.id.queue_retry_button);
             prioritizeButton = itemView.findViewById(R.id.queue_prioritize_button);
+            recycleOriginalButton = itemView.findViewById(R.id.queue_recycle_original_button);
+            recycleOutputButton = itemView.findViewById(R.id.queue_recycle_output_button);
+            recompressButton = itemView.findViewById(R.id.queue_recompress_button);
         }
     }
 }

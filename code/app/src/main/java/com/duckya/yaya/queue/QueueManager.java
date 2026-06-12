@@ -47,6 +47,26 @@ public class QueueManager {
         return new ArrayList<>(tasks);
     }
 
+    public synchronized List<QueueTask> getActiveTasks() {
+        List<QueueTask> result = new ArrayList<>();
+        for (QueueTask task : tasks) {
+            if (task.getStatus() != QueueStatus.DONE) {
+                result.add(task);
+            }
+        }
+        return result;
+    }
+
+    public synchronized List<QueueTask> getCompletedTasks() {
+        List<QueueTask> result = new ArrayList<>();
+        for (QueueTask task : tasks) {
+            if (task.getStatus() == QueueStatus.DONE) {
+                result.add(task);
+            }
+        }
+        return result;
+    }
+
     public synchronized boolean isRunning() {
         return running;
     }
@@ -71,7 +91,15 @@ public class QueueManager {
     public synchronized void clear() {
         running = false;
         runToken++;
-        tasks.clear();
+        tasks.removeIf(task -> task.getStatus() != QueueStatus.DONE);
+        notifyListeners();
+    }
+
+    public synchronized void clearCompletedTasks() {
+        tasks.removeIf(task -> task.getStatus() == QueueStatus.DONE);
+        if (tasks.isEmpty()) {
+            running = false;
+        }
         notifyListeners();
     }
 
@@ -89,6 +117,7 @@ public class QueueManager {
             if (task.getId().equals(taskId)) {
                 task.setStatus(QueueStatus.PENDING);
                 task.setProgress(0f);
+                task.setActualOutputBytes(0L);
                 task.setFailureReason(null);
                 break;
             }
@@ -138,6 +167,26 @@ public class QueueManager {
         long total = 0L;
         for (QueueTask task : tasks) {
             total += task.getSavedBytes();
+        }
+        return total;
+    }
+
+    public synchronized long actualSavedBytes() {
+        long total = 0L;
+        for (QueueTask task : tasks) {
+            if (task.getStatus() == QueueStatus.DONE) {
+                total += task.getSavedBytes();
+            }
+        }
+        return total;
+    }
+
+    public synchronized long estimatedRemainingBytes() {
+        long total = 0L;
+        for (QueueTask task : tasks) {
+            if (task.getStatus() != QueueStatus.DONE) {
+                total += task.getSavedBytes();
+            }
         }
         return total;
     }

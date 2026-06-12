@@ -126,6 +126,7 @@
             android:progress="0" />
 
         <LinearLayout
+            android:id="@+id/queue_inline_action_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
@@ -147,6 +148,44 @@
                 android:layout_height="32dp"
                 android:minWidth="0dp"
                 android:text="@string/queue_prioritize" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/queue_completed_action_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <Button
+                android:id="@+id/queue_recycle_original_button"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:text="@string/queue_recycle_original_image" />
+
+            <Button
+                android:id="@+id/queue_recycle_output_button"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:text="@string/queue_recycle_compressed_image" />
+
+            <Button
+                android:id="@+id/queue_recompress_button"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:text="@string/queue_recompress" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>
