@@ -164,8 +164,12 @@
                 android:layout_width="0dp"
                 android:layout_height="36dp"
                 android:layout_weight="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:maxLines="1"
                 android:minWidth="0dp"
-                android:text="@string/queue_recycle_original_image" />
+                android:text="@string/queue_recycle_original_image"
+                android:textSize="12dp" />
 
             <Button
                 android:id="@+id/queue_recycle_output_button"
@@ -174,8 +178,12 @@
                 android:layout_height="36dp"
                 android:layout_marginStart="6dp"
                 android:layout_weight="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:maxLines="1"
                 android:minWidth="0dp"
-                android:text="@string/queue_recycle_compressed_image" />
+                android:text="@string/queue_recycle_compressed_image"
+                android:textSize="12dp" />
 
             <Button
                 android:id="@+id/queue_recompress_button"
@@ -184,8 +192,12 @@
                 android:layout_height="36dp"
                 android:layout_marginStart="6dp"
                 android:layout_weight="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:maxLines="1"
                 android:minWidth="0dp"
-                android:text="@string/queue_recompress" />
+                android:text="@string/queue_recompress"
+                android:textSize="12dp" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

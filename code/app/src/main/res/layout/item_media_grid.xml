@@ -4,6 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="4dp"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     android:background="@drawable/bg_media_tile">
 
     <ImageView
@@ -34,6 +36,25 @@
         android:textSize="10sp"
         app:layout_constraintEnd_toEndOf="@id/media_thumbnail"
         app:layout_constraintTop_toTopOf="@id/media_thumbnail" />
+
+    <com.google.android.material.checkbox.MaterialCheckBox
+        android:id="@+id/media_select_checkbox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="2dp"
+        android:layout_marginTop="2dp"
+        android:alpha="0"
+        android:buttonTint="@null"
+        android:checked="false"
+        android:focusable="false"
+        android:minWidth="32dp"
+        android:minHeight="32dp"
+        android:scaleX="0.82"
+        android:scaleY="0.82"
+        android:visibility="gone"
+        app:layout_constraintStart_toStartOf="@id/media_thumbnail"
+        app:layout_constraintTop_toTopOf="@id/media_thumbnail"
+        app:useMaterialThemeColors="true" />
 
     <TextView
         android:id="@+id/media_size_badge"

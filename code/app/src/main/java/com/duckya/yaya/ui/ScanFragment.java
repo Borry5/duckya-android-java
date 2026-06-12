@@ -9,6 +9,7 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.PopupMenu;
 import android.widget.RadioGroup;
 import android.widget.Switch;
@@ -65,6 +66,10 @@ public class ScanFragment extends Fragment {
     private boolean headerDoneVisible;
     private boolean headerPrimaryEnabled;
     private boolean headerControlsEnabled;
+    private View fixedSelectionBar;
+    private Button fixedCompressButton;
+    private Button fixedDeleteButton;
+    private Button fixedDoneButton;
 
     private final ActivityResultLauncher<String[]> permissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), this::onPermissionResult);
@@ -83,6 +88,13 @@ public class ScanFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         RecyclerView mediaRecycler = view.findViewById(R.id.media_recycler);
+        fixedSelectionBar = view.findViewById(R.id.scan_fixed_selection_bar);
+        fixedCompressButton = view.findViewById(R.id.scan_fixed_selection_compress_button);
+        fixedDeleteButton = view.findViewById(R.id.scan_fixed_selection_delete_button);
+        fixedDoneButton = view.findViewById(R.id.scan_fixed_selection_done_button);
+        fixedCompressButton.setOnClickListener(v -> addSelectedToQueue(QueueAction.COMPRESS));
+        fixedDeleteButton.setOnClickListener(v -> addSelectedToQueue(QueueAction.DELETE));
+        fixedDoneButton.setOnClickListener(v -> setSelectionMode(false));
         scanExecutor = Executors.newSingleThreadExecutor();
         mediaAdapter = new MediaGridAdapter(new MediaGridAdapter.Listener() {
             @Override
@@ -101,6 +113,11 @@ public class ScanFragment extends Fragment {
                 } else {
                     showMediaActionMenu(item, anchor);
                 }
+            }
+
+            @Override
+            public void onSelectionToggleClick(MediaItemInfo item) {
+                toggleSelection(item);
             }
 
             @Override
@@ -172,6 +189,10 @@ public class ScanFragment extends Fragment {
             scanExecutor = null;
         }
         mediaAdapter = null;
+        fixedSelectionBar = null;
+        fixedCompressButton = null;
+        fixedDeleteButton = null;
+        fixedDoneButton = null;
     }
 
     private void onPermissionResult(Map<String, Boolean> result) {
@@ -409,6 +430,7 @@ public class ScanFragment extends Fragment {
         if (!enabled) {
             selectedUris.clear();
         }
+        updateFixedSelectionBar();
         renderHeader();
         if (mediaAdapter != null) {
             mediaAdapter.setSelectionMode(selectionMode, selectedUris);
@@ -425,7 +447,19 @@ public class ScanFragment extends Fragment {
         if (mediaAdapter != null) {
             mediaAdapter.notifySelectionChanged(uri);
         }
+        updateFixedSelectionBar();
         renderHeader();
+    }
+
+    // 顶层固定多选栏不在 RecyclerView 里，滚动媒体列表时仍然停留在页面上方。
+    private void updateFixedSelectionBar() {
+        if (fixedSelectionBar == null || fixedCompressButton == null || fixedDeleteButton == null) {
+            return;
+        }
+        fixedSelectionBar.setVisibility(selectionMode ? View.VISIBLE : View.GONE);
+        boolean hasSelection = selectedUris.size() > 0;
+        fixedCompressButton.setEnabled(hasSelection);
+        fixedDeleteButton.setEnabled(hasSelection);
     }
 
     private void postScanProgress(int progress, int scannedCount, int totalCount) {

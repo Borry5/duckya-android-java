@@ -9,6 +9,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.view.ViewCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.duckya.yaya.R;
@@ -16,6 +17,7 @@ import com.duckya.yaya.model.MediaItemInfo;
 import com.duckya.yaya.model.MediaKind;
 import com.duckya.yaya.util.FormatUtils;
 import com.duckya.yaya.util.ThumbnailLoader;
+import com.google.android.material.checkbox.MaterialCheckBox;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,6 +36,8 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         void onMediaClick(MediaItemInfo item);
 
         void onMediaLongClick(MediaItemInfo item, View anchor);
+
+        void onSelectionToggleClick(MediaItemInfo item);
 
         void onPrimaryActionClick();
 
@@ -152,6 +156,7 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             listener.onMediaLongClick(item, v);
             return true;
         });
+        mediaHolder.selectionCheckBox.setOnClickListener(v -> listener.onSelectionToggleClick(item));
     }
 
     @Override
@@ -195,7 +200,54 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
     private void updateSelectionUi(MediaViewHolder holder, MediaItemInfo item) {
         boolean selected = selectedUris != null && selectedUris.contains(item.getUri().toString());
+        holder.selectionCheckBox.setChecked(selected);
+        holder.selectionCheckBox.setContentDescription(holder.itemView.getContext().getString(
+                selected ? R.string.scan_checkbox_deselect : R.string.scan_checkbox_select,
+                item.getName()
+        ));
+        animateCheckBoxVisibility(holder.selectionCheckBox, selectionMode);
         holder.itemView.setAlpha(!selectionMode || selected ? 1.0f : 0.72f);
+        ViewCompat.setStateDescription(holder.itemView, holder.itemView.getContext().getString(
+                selected ? R.string.scan_item_selected_state : R.string.scan_item_unselected_state
+        ));
+    }
+
+    // 只在显隐状态真正变化时做轻量动画，避免频繁 bind 影响滚动与点击响应。
+    private void animateCheckBoxVisibility(MaterialCheckBox checkBox, boolean visible) {
+        boolean currentlyVisible = checkBox.getVisibility() == View.VISIBLE;
+        if (currentlyVisible == visible) {
+            if (visible) {
+                checkBox.setAlpha(1.0f);
+                checkBox.setScaleX(1.0f);
+                checkBox.setScaleY(1.0f);
+            }
+            return;
+        }
+        checkBox.animate().cancel();
+        if (visible) {
+            checkBox.setVisibility(View.VISIBLE);
+            checkBox.setAlpha(0.0f);
+            checkBox.setScaleX(0.82f);
+            checkBox.setScaleY(0.82f);
+            checkBox.animate()
+                    .alpha(1.0f)
+                    .scaleX(1.0f)
+                    .scaleY(1.0f)
+                    .setDuration(120L)
+                    .start();
+            return;
+        }
+        checkBox.animate()
+                .alpha(0.0f)
+                .scaleX(0.82f)
+                .scaleY(0.82f)
+                .setDuration(90L)
+                .withEndAction(() -> {
+                    checkBox.setVisibility(View.GONE);
+                    checkBox.setScaleX(0.82f);
+                    checkBox.setScaleY(0.82f);
+                })
+                .start();
     }
 
     private int adapterPositionForUri(String uriText) {
@@ -251,12 +303,14 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         final ImageView thumbnail;
         final TextView kindBadge;
         final TextView sizeBadge;
+        final MaterialCheckBox selectionCheckBox;
 
         MediaViewHolder(@NonNull View itemView) {
             super(itemView);
             thumbnail = itemView.findViewById(R.id.media_thumbnail);
             kindBadge = itemView.findViewById(R.id.media_kind_badge);
             sizeBadge = itemView.findViewById(R.id.media_size_badge);
+            selectionCheckBox = itemView.findViewById(R.id.media_select_checkbox);
         }
     }
 
@@ -297,8 +351,9 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
 
         void bind(HeaderState state, Listener listener) {
-            titleBar.setVisibility(state.selectionMode ? View.INVISIBLE : View.VISIBLE);
-            selectionBar.setVisibility(state.selectionMode ? View.VISIBLE : View.INVISIBLE);
+            // 多选操作栏已经提升到 Fragment 顶层，这里只负责滚动内容里的扫描头部。
+            titleBar.setVisibility(state.selectionMode ? View.GONE : View.VISIBLE);
+            selectionBar.setVisibility(View.GONE);
             statusText.setText(state.statusText);
             detailText.setText(state.detailText);
             doneText.setVisibility(state.doneVisible ? View.VISIBLE : View.INVISIBLE);
@@ -316,18 +371,10 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             filterButton.setOnClickListener(v -> listener.onFilterClick());
             sortButton.setOnClickListener(v -> listener.onSortClick(sortButton));
             selectButton.setEnabled(state.controlsEnabled);
-            selectButton.setOnClickListener(v -> {
-                titleBar.setVisibility(View.INVISIBLE);
-                selectionBar.setVisibility(View.VISIBLE);
-                listener.onSelectModeClick();
-            });
+            selectButton.setOnClickListener(v -> listener.onSelectModeClick());
             selectionDeleteButton.setEnabled(state.selectedCount > 0);
             selectionCompressButton.setEnabled(state.selectedCount > 0);
-            selectionDoneButton.setOnClickListener(v -> {
-                titleBar.setVisibility(View.VISIBLE);
-                selectionBar.setVisibility(View.INVISIBLE);
-                listener.onSelectionDoneClick();
-            });
+            selectionDoneButton.setOnClickListener(v -> listener.onSelectionDoneClick());
             selectionDeleteButton.setOnClickListener(v -> listener.onSelectionDeleteClick());
             selectionCompressButton.setOnClickListener(v -> listener.onSelectionCompressClick());
         }
