@@ -1,7 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Base.Theme.YaYaJava" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+        <!-- 夜间模式也沿用黄色品牌主色。 -->
+        <item name="colorPrimary">@color/yaya_primary</item>
+        <item name="colorOnPrimary">@color/yaya_on_primary</item>
+        <item name="colorPrimaryContainer">@color/yaya_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/yaya_on_primary_container</item>
+        <item name="android:colorAccent">@color/yaya_primary</item>
     </style>
 </resources>
