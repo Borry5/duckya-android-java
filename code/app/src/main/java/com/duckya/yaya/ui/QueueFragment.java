@@ -27,12 +27,18 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 public class QueueFragment extends Fragment implements QueueChangeListener {
     private QueueTaskAdapter adapter;
+    private QueueTaskAdapter completedAdapter;
+    private View mainPage;
+    private View completedPage;
     private TextView savedText;
     private TextView remainingText;
     private TextView emptyText;
+    private TextView completedCountText;
+    private TextView completedEmptyText;
     private Button clearButton;
     private Button startButton;
-    private Button completedButton;
+    private Button completedClearButton;
+    private View completedEntry;
     private final QueueManager queueManager = QueueManager.getInstance();
 
     @Nullable
@@ -48,13 +54,19 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        mainPage = view.findViewById(R.id.queue_main_page);
+        completedPage = view.findViewById(R.id.queue_completed_page);
         savedText = view.findViewById(R.id.queue_saved_text);
         remainingText = view.findViewById(R.id.queue_remaining_text);
         emptyText = view.findViewById(R.id.queue_empty_text);
+        completedCountText = view.findViewById(R.id.queue_completed_count_text);
+        completedEmptyText = view.findViewById(R.id.queue_completed_empty_text);
         clearButton = view.findViewById(R.id.queue_clear_button);
         startButton = view.findViewById(R.id.queue_start_button);
-        completedButton = view.findViewById(R.id.queue_completed_button);
+        completedClearButton = view.findViewById(R.id.queue_completed_clear_button);
+        completedEntry = view.findViewById(R.id.queue_completed_entry);
         RecyclerView recyclerView = view.findViewById(R.id.queue_recycler);
+        RecyclerView completedRecyclerView = view.findViewById(R.id.queue_completed_recycler);
         adapter = new QueueTaskAdapter(createQueueListener());
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         if (recyclerView.getItemAnimator() instanceof SimpleItemAnimator) {
@@ -62,9 +74,21 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             ((SimpleItemAnimator) recyclerView.getItemAnimator()).setSupportsChangeAnimations(false);
         }
         recyclerView.setAdapter(adapter);
+        // 已完成任务使用独立列表承载，进入二级页面时不会挤在弹窗里。
+        completedAdapter = new QueueTaskAdapter(createQueueListener(), true);
+        completedRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        if (completedRecyclerView.getItemAnimator() instanceof SimpleItemAnimator) {
+            ((SimpleItemAnimator) completedRecyclerView.getItemAnimator()).setSupportsChangeAnimations(false);
+        }
+        completedRecyclerView.setAdapter(completedAdapter);
         clearButton.setOnClickListener(v -> queueManager.clear());
         startButton.setOnClickListener(v -> queueManager.toggleRunning());
-        completedButton.setOnClickListener(v -> showCompletedTasksDialog());
+        completedEntry.setOnClickListener(v -> showCompletedPage());
+        view.findViewById(R.id.queue_completed_back_button).setOnClickListener(v -> showMainPage());
+        completedClearButton.setOnClickListener(v -> {
+            queueManager.clearCompletedTasks();
+            showMainPage();
+        });
         queueManager.addListener(this);
         refreshQueue();
     }
@@ -74,12 +98,18 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         super.onDestroyView();
         queueManager.removeListener(this);
         adapter = null;
+        completedAdapter = null;
+        mainPage = null;
+        completedPage = null;
         savedText = null;
         remainingText = null;
         emptyText = null;
+        completedCountText = null;
+        completedEmptyText = null;
         clearButton = null;
         startButton = null;
-        completedButton = null;
+        completedClearButton = null;
+        completedEntry = null;
     }
 
     @Override
@@ -91,13 +121,15 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     }
 
     private void refreshQueue() {
-        if (adapter == null || savedText == null || remainingText == null || emptyText == null
-                || clearButton == null || startButton == null || completedButton == null) {
+        if (adapter == null || completedAdapter == null || savedText == null || remainingText == null
+                || emptyText == null || completedCountText == null || completedEmptyText == null
+                || clearButton == null || startButton == null || completedClearButton == null || completedEntry == null) {
             return;
         }
         java.util.List<QueueTask> activeTasks = queueManager.getActiveTasks();
         java.util.List<QueueTask> completedTasks = queueManager.getCompletedTasks();
         adapter.submitList(activeTasks);
+        completedAdapter.submitList(completedTasks);
         savedText.setText(FormatUtils.formatSize(queueManager.actualSavedBytes()));
         remainingText.setText(activeTasks.isEmpty()
                 ? "--"
@@ -106,9 +138,14 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         clearButton.setEnabled(!activeTasks.isEmpty());
         startButton.setEnabled(!activeTasks.isEmpty());
         startButton.setText(queueManager.isRunning() ? R.string.queue_pause : R.string.queue_start);
-        completedButton.setText(getString(R.string.queue_completed_tasks) + "  "
-                + getString(R.string.queue_completed_count, completedTasks.size()));
-        completedButton.setEnabled(!completedTasks.isEmpty());
+        completedCountText.setText(getString(R.string.queue_completed_count, completedTasks.size()));
+        // 没有已完成任务时隐藏入口，避免空栏目占用主队列空间。
+        completedEntry.setVisibility(completedTasks.isEmpty() ? View.GONE : View.VISIBLE);
+        completedEmptyText.setVisibility(completedTasks.isEmpty() ? View.VISIBLE : View.GONE);
+        completedClearButton.setEnabled(!completedTasks.isEmpty());
+        if (completedTasks.isEmpty() && completedPage != null && completedPage.getVisibility() == View.VISIBLE) {
+            showMainPage();
+        }
     }
 
     private QueueTaskAdapter.Listener createQueueListener() {
@@ -151,29 +188,23 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         };
     }
 
-    private void showCompletedTasksDialog() {
+    private void showCompletedPage() {
         java.util.List<QueueTask> completedTasks = queueManager.getCompletedTasks();
         if (completedTasks.isEmpty()) {
             Toast.makeText(requireContext(), R.string.queue_completed_empty, Toast.LENGTH_SHORT).show();
             return;
         }
-        RecyclerView recyclerView = new RecyclerView(requireContext());
-        int padding = (int) (12 * getResources().getDisplayMetrics().density);
-        recyclerView.setPadding(padding, padding, padding, padding);
-        recyclerView.setClipToPadding(false);
-        recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
-        if (recyclerView.getItemAnimator() instanceof SimpleItemAnimator) {
-            ((SimpleItemAnimator) recyclerView.getItemAnimator()).setSupportsChangeAnimations(false);
-        }
-        QueueTaskAdapter completedAdapter = new QueueTaskAdapter(createQueueListener(), true);
-        completedAdapter.submitList(completedTasks);
-        recyclerView.setAdapter(completedAdapter);
+        // 在当前 Fragment 内切换到完整二级页面，保留左上角返回入口。
+        mainPage.setVisibility(View.GONE);
+        completedPage.setVisibility(View.VISIBLE);
+    }
 
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.queue_completed_tasks)
-                .setView(recyclerView)
-                .setPositiveButton(R.string.queue_settings_close, null)
-                .show();
+    private void showMainPage() {
+        if (mainPage == null || completedPage == null) {
+            return;
+        }
+        completedPage.setVisibility(View.GONE);
+        mainPage.setVisibility(View.VISIBLE);
     }
 
     // 用安卓原生小弹窗切换每个图片任务的压缩档位。
