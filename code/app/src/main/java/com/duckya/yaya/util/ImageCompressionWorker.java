@@ -5,6 +5,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.MediaStore;
@@ -28,6 +29,52 @@ import java.util.Locale;
 public class ImageCompressionWorker {
     private static final String COMPARISON_ALBUM_PATH = "DCIM/压缩对照";
     private static final String COMPARISON_TIME_PATTERN = "yyyyMMdd_HHmmss_SSS";
+    @SuppressWarnings("deprecation")
+    private static final String[] EXIF_TAGS_TO_COPY = new String[]{
+            ExifInterface.TAG_MAKE,
+            ExifInterface.TAG_MODEL,
+            ExifInterface.TAG_SOFTWARE,
+            ExifInterface.TAG_DATETIME,
+            ExifInterface.TAG_DATETIME_ORIGINAL,
+            ExifInterface.TAG_DATETIME_DIGITIZED,
+            ExifInterface.TAG_OFFSET_TIME,
+            ExifInterface.TAG_OFFSET_TIME_ORIGINAL,
+            ExifInterface.TAG_OFFSET_TIME_DIGITIZED,
+            ExifInterface.TAG_SUBSEC_TIME,
+            ExifInterface.TAG_SUBSEC_TIME_ORIGINAL,
+            ExifInterface.TAG_SUBSEC_TIME_DIGITIZED,
+            ExifInterface.TAG_ORIENTATION,
+            ExifInterface.TAG_ISO,
+            ExifInterface.TAG_ISO_SPEED_RATINGS,
+            ExifInterface.TAG_FOCAL_LENGTH,
+            ExifInterface.TAG_FOCAL_LENGTH_IN_35MM_FILM,
+            ExifInterface.TAG_F_NUMBER,
+            ExifInterface.TAG_APERTURE_VALUE,
+            ExifInterface.TAG_EXPOSURE_TIME,
+            ExifInterface.TAG_EXPOSURE_BIAS_VALUE,
+            ExifInterface.TAG_EXPOSURE_MODE,
+            ExifInterface.TAG_EXPOSURE_PROGRAM,
+            ExifInterface.TAG_FLASH,
+            ExifInterface.TAG_WHITE_BALANCE,
+            ExifInterface.TAG_METERING_MODE,
+            ExifInterface.TAG_LIGHT_SOURCE,
+            ExifInterface.TAG_DIGITAL_ZOOM_RATIO,
+            ExifInterface.TAG_SCENE_CAPTURE_TYPE,
+            ExifInterface.TAG_SCENE_TYPE,
+            ExifInterface.TAG_COLOR_SPACE,
+            ExifInterface.TAG_GPS_VERSION_ID,
+            ExifInterface.TAG_GPS_LATITUDE,
+            ExifInterface.TAG_GPS_LATITUDE_REF,
+            ExifInterface.TAG_GPS_LONGITUDE,
+            ExifInterface.TAG_GPS_LONGITUDE_REF,
+            ExifInterface.TAG_GPS_ALTITUDE,
+            ExifInterface.TAG_GPS_ALTITUDE_REF,
+            ExifInterface.TAG_GPS_DATESTAMP,
+            ExifInterface.TAG_GPS_TIMESTAMP,
+            ExifInterface.TAG_GPS_PROCESSING_METHOD,
+            ExifInterface.TAG_GPS_IMG_DIRECTION,
+            ExifInterface.TAG_GPS_IMG_DIRECTION_REF
+    };
 
     public interface ProgressCallback {
         boolean onProgress(float progress);
@@ -95,6 +142,7 @@ public class ImageCompressionWorker {
         File tempFile = File.createTempFile("duckya_compress_", ".jpg", context.getCacheDir());
         try {
             compressToTempFile(outputBitmap, settings, tempFile);
+            copyExifToCompressedFile(context, item.getUri(), tempFile);
             outputBitmap.recycle();
 
             if (!publishProgress(callback, 0.82f)) {
@@ -170,6 +218,30 @@ public class ImageCompressionWorker {
                 throw new IOException("写入压缩文件失败");
             }
             outputStream.flush();
+        }
+    }
+
+    private void copyExifToCompressedFile(Context context, Uri sourceUri, File targetFile) {
+        // Bitmap 重新编码会丢失 EXIF，这里把拍摄设备、ISO、焦距等拍摄信息写回压缩图。
+        try (InputStream inputStream = context.getContentResolver().openInputStream(sourceUri)) {
+            if (inputStream == null) {
+                return;
+            }
+            ExifInterface sourceExif = new ExifInterface(inputStream);
+            ExifInterface targetExif = new ExifInterface(targetFile.getAbsolutePath());
+            boolean changed = false;
+            for (String tag : EXIF_TAGS_TO_COPY) {
+                String value = sourceExif.getAttribute(tag);
+                if (value != null) {
+                    targetExif.setAttribute(tag, value);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                targetExif.saveAttributes();
+            }
+        } catch (IOException ignored) {
+            // 少数格式没有可读 EXIF，压缩本身不应因此失败。
         }
     }
 
