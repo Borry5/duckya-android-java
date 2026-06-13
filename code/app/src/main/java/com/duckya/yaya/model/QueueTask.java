@@ -1,5 +1,7 @@
 package com.duckya.yaya.model;
 
+import android.net.Uri;
+
 import java.util.UUID;
 
 public class QueueTask {
@@ -12,6 +14,9 @@ public class QueueTask {
     private long estimatedOutputBytes;
     private long actualOutputBytes;
     private String failureReason;
+    private Uri compressedAssetUri;
+    private boolean originalRecycled;
+    private boolean outputRecycled;
 
     public QueueTask(MediaItemInfo media, QueueAction action) {
         this.id = UUID.randomUUID().toString();
@@ -93,6 +98,31 @@ public class QueueTask {
 
     public void setActualOutputBytes(long actualOutputBytes) {
         this.actualOutputBytes = actualOutputBytes;
+    }
+
+    public Uri getCompressedAssetUri() {
+        return compressedAssetUri;
+    }
+
+    public void setCompressedAssetUri(Uri compressedAssetUri) {
+        this.compressedAssetUri = compressedAssetUri;
+        this.outputRecycled = false;
+    }
+
+    public boolean isOriginalRecycled() {
+        return originalRecycled;
+    }
+
+    public void setOriginalRecycled(boolean originalRecycled) {
+        this.originalRecycled = originalRecycled;
+    }
+
+    public boolean isOutputRecycled() {
+        return outputRecycled;
+    }
+
+    public void setOutputRecycled(boolean outputRecycled) {
+        this.outputRecycled = outputRecycled;
     }
 
     public String getFailureReason() {

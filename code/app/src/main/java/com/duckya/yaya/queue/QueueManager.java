@@ -11,6 +11,7 @@ import com.duckya.yaya.model.CompressionSettings;
 import com.duckya.yaya.util.ImageCompressionWorker;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -118,6 +119,8 @@ public class QueueManager {
                 task.setStatus(QueueStatus.PENDING);
                 task.setProgress(0f);
                 task.setActualOutputBytes(0L);
+                // 重新处理时清掉上一轮压缩产物，避免回收按钮指向旧文件。
+                task.setCompressedAssetUri(null);
                 task.setFailureReason(null);
                 break;
             }
@@ -149,6 +152,7 @@ public class QueueManager {
         task.setSettings(settings);
         task.setStatus(QueueStatus.PENDING);
         task.setProgress(0f);
+        task.setCompressedAssetUri(null);
         task.setFailureReason(null);
         notifyListeners();
     }
@@ -250,7 +254,7 @@ public class QueueManager {
                     task.getSettings(),
                     progress -> updateTaskProgress(task.getId(), progress, token)
             );
-            completeTask(task.getId(), result.getOutputBytes(), token);
+            completeTask(task.getId(), result, token);
         } catch (InterruptedException e) {
             throw e;
         } catch (Exception e) {
@@ -274,7 +278,25 @@ public class QueueManager {
         }
     }
 
-    private void completeTask(String taskId, long outputBytes, int token) {
+    public synchronized void markOriginalRecycled(Collection<String> taskIds) {
+        for (QueueTask task : tasks) {
+            if (taskIds.contains(task.getId())) {
+                task.setOriginalRecycled(true);
+            }
+        }
+        notifyListeners();
+    }
+
+    public synchronized void markOutputRecycled(Collection<String> taskIds) {
+        for (QueueTask task : tasks) {
+            if (taskIds.contains(task.getId())) {
+                task.setOutputRecycled(true);
+            }
+        }
+        notifyListeners();
+    }
+
+    private void completeTask(String taskId, ImageCompressionWorker.Result result, int token) {
         synchronized (this) {
             if (!isActiveRun(token)) {
                 return;
@@ -283,7 +305,8 @@ public class QueueManager {
             if (task == null) {
                 return;
             }
-            task.setActualOutputBytes(outputBytes);
+            task.setActualOutputBytes(result.getOutputBytes());
+            task.setCompressedAssetUri(result.getOutputUri());
             task.setProgress(1f);
             task.setStatus(QueueStatus.DONE);
             notifyListeners();

@@ -1,5 +1,8 @@
 package com.duckya.yaya.ui;
 
+import android.app.Activity;
+import android.app.PendingIntent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -9,6 +12,9 @@ import android.widget.RadioButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.IntentSenderRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -23,7 +29,11 @@ import com.duckya.yaya.model.QueueTask;
 import com.duckya.yaya.queue.QueueChangeListener;
 import com.duckya.yaya.queue.QueueManager;
 import com.duckya.yaya.util.FormatUtils;
+import com.duckya.yaya.util.MediaTrashManager;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class QueueFragment extends Fragment implements QueueChangeListener {
     private QueueTaskAdapter adapter;
@@ -38,8 +48,30 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     private Button clearButton;
     private Button startButton;
     private Button completedClearButton;
+    private Button completedRecycleAllButton;
     private View completedEntry;
     private final QueueManager queueManager = QueueManager.getInstance();
+    private final MediaTrashManager trashManager = new MediaTrashManager();
+    private PendingRecycleRequest pendingRecycleRequest;
+
+    private final ActivityResultLauncher<IntentSenderRequest> trashRequestLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
+                if (pendingRecycleRequest == null) {
+                    return;
+                }
+                PendingRecycleRequest request = pendingRecycleRequest;
+                pendingRecycleRequest = null;
+                if (result.getResultCode() != Activity.RESULT_OK) {
+                    Toast.makeText(requireContext(), R.string.queue_recycle_cancelled, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (request.outputTarget) {
+                    queueManager.markOutputRecycled(request.taskIds);
+                } else {
+                    queueManager.markOriginalRecycled(request.taskIds);
+                }
+                Toast.makeText(requireContext(), R.string.queue_recycle_done, Toast.LENGTH_SHORT).show();
+            });
 
     @Nullable
     @Override
@@ -64,6 +96,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         clearButton = view.findViewById(R.id.queue_clear_button);
         startButton = view.findViewById(R.id.queue_start_button);
         completedClearButton = view.findViewById(R.id.queue_completed_clear_button);
+        completedRecycleAllButton = view.findViewById(R.id.queue_completed_recycle_all_button);
         completedEntry = view.findViewById(R.id.queue_completed_entry);
         RecyclerView recyclerView = view.findViewById(R.id.queue_recycler);
         RecyclerView completedRecyclerView = view.findViewById(R.id.queue_completed_recycler);
@@ -89,6 +122,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             queueManager.clearCompletedTasks();
             showMainPage();
         });
+        completedRecycleAllButton.setOnClickListener(v -> recycleAllOriginals());
         queueManager.addListener(this);
         refreshQueue();
     }
@@ -109,6 +143,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         clearButton = null;
         startButton = null;
         completedClearButton = null;
+        completedRecycleAllButton = null;
         completedEntry = null;
     }
 
@@ -123,7 +158,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     private void refreshQueue() {
         if (adapter == null || completedAdapter == null || savedText == null || remainingText == null
                 || emptyText == null || completedCountText == null || completedEmptyText == null
-                || clearButton == null || startButton == null || completedClearButton == null || completedEntry == null) {
+                || clearButton == null || startButton == null || completedClearButton == null
+                || completedRecycleAllButton == null || completedEntry == null) {
             return;
         }
         java.util.List<QueueTask> activeTasks = queueManager.getActiveTasks();
@@ -143,6 +179,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         completedEntry.setVisibility(completedTasks.isEmpty() ? View.GONE : View.VISIBLE);
         completedEmptyText.setVisibility(completedTasks.isEmpty() ? View.VISIBLE : View.GONE);
         completedClearButton.setEnabled(!completedTasks.isEmpty());
+        completedRecycleAllButton.setEnabled(hasRecyclableOriginal(completedTasks));
         if (completedTasks.isEmpty() && completedPage != null && completedPage.getVisibility() == View.VISIBLE) {
             showMainPage();
         }
@@ -172,12 +209,12 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
 
             @Override
             public void onRecycleOriginal(QueueTask task) {
-                Toast.makeText(requireContext(), R.string.queue_recycle_pending, Toast.LENGTH_SHORT).show();
+                recycleTaskMedia(task, false);
             }
 
             @Override
             public void onRecycleOutput(QueueTask task) {
-                Toast.makeText(requireContext(), R.string.queue_recycle_pending, Toast.LENGTH_SHORT).show();
+                recycleTaskMedia(task, true);
             }
 
             @Override
@@ -186,6 +223,65 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 Toast.makeText(requireContext(), R.string.queue_recompress_added, Toast.LENGTH_SHORT).show();
             }
         };
+    }
+
+    private boolean hasRecyclableOriginal(List<QueueTask> tasks) {
+        for (QueueTask task : tasks) {
+            if (!task.isOriginalRecycled()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void recycleAllOriginals() {
+        List<QueueTask> targets = new ArrayList<>();
+        for (QueueTask task : queueManager.getCompletedTasks()) {
+            if (!task.isOriginalRecycled()) {
+                targets.add(task);
+            }
+        }
+        requestRecycle(targets, false);
+    }
+
+    private void recycleTaskMedia(QueueTask task, boolean outputTarget) {
+        List<QueueTask> targets = new ArrayList<>();
+        targets.add(task);
+        requestRecycle(targets, outputTarget);
+    }
+
+    private void requestRecycle(List<QueueTask> tasks, boolean outputTarget) {
+        if (!trashManager.isTrashRequestSupported()) {
+            Toast.makeText(requireContext(), R.string.queue_recycle_pending, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        List<Uri> uris = new ArrayList<>();
+        List<String> taskIds = new ArrayList<>();
+        for (QueueTask task : tasks) {
+            Uri targetUri = outputTarget ? task.getCompressedAssetUri() : task.getMedia().getUri();
+            boolean alreadyRecycled = outputTarget ? task.isOutputRecycled() : task.isOriginalRecycled();
+            if (targetUri == null || alreadyRecycled) {
+                continue;
+            }
+            uris.add(targetUri);
+            taskIds.add(task.getId());
+        }
+        if (uris.isEmpty()) {
+            Toast.makeText(requireContext(), R.string.queue_recycle_no_target, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        PendingIntent pendingIntent = trashManager.createTrashRequest(requireContext(), uris);
+        if (pendingIntent == null) {
+            Toast.makeText(requireContext(), R.string.queue_recycle_pending, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        pendingRecycleRequest = new PendingRecycleRequest(taskIds, outputTarget);
+        try {
+            trashRequestLauncher.launch(new IntentSenderRequest.Builder(pendingIntent.getIntentSender()).build());
+        } catch (RuntimeException e) {
+            pendingRecycleRequest = null;
+            Toast.makeText(requireContext(), R.string.queue_recycle_pending, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void showCompletedPage() {
@@ -205,6 +301,16 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         }
         completedPage.setVisibility(View.GONE);
         mainPage.setVisibility(View.VISIBLE);
+    }
+
+    private static class PendingRecycleRequest {
+        private final List<String> taskIds;
+        private final boolean outputTarget;
+
+        private PendingRecycleRequest(List<String> taskIds, boolean outputTarget) {
+            this.taskIds = taskIds;
+            this.outputTarget = outputTarget;
+        }
     }
 
     // 用安卓原生小弹窗切换每个图片任务的压缩档位。

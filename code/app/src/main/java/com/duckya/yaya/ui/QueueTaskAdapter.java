@@ -160,6 +160,14 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         holder.recycleOutputButton.setText(isVideo
                 ? R.string.queue_recycle_compressed_video
                 : R.string.queue_recycle_compressed_image);
+        if (task.isOriginalRecycled()) {
+            holder.recycleOriginalButton.setText(R.string.queue_recycled);
+        }
+        if (task.isOutputRecycled()) {
+            holder.recycleOutputButton.setText(R.string.queue_recycled);
+        }
+        holder.recycleOriginalButton.setEnabled(!task.isOriginalRecycled());
+        holder.recycleOutputButton.setEnabled(!task.isOutputRecycled() && task.getCompressedAssetUri() != null);
         holder.recompressButton.setEnabled(task.getAction() == QueueAction.COMPRESS);
     }
 
@@ -242,6 +250,8 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         private final long actualOutputBytes;
         private final String failureReason;
         private final com.duckya.yaya.model.CompressionPreset preset;
+        private final boolean originalRecycled;
+        private final boolean outputRecycled;
 
         TaskSnapshot(QueueTask task) {
             id = task.getId();
@@ -251,6 +261,8 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
             actualOutputBytes = task.getActualOutputBytes();
             failureReason = task.getFailureReason();
             preset = task.getSettings().getPreset();
+            originalRecycled = task.isOriginalRecycled();
+            outputRecycled = task.isOutputRecycled();
         }
 
         private boolean hasSameDynamicState(TaskSnapshot other) {
@@ -259,7 +271,9 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
                     && estimatedOutputBytes == other.estimatedOutputBytes
                     && actualOutputBytes == other.actualOutputBytes
                     && Objects.equals(failureReason, other.failureReason)
-                    && preset == other.preset;
+                    && preset == other.preset
+                    && originalRecycled == other.originalRecycled
+                    && outputRecycled == other.outputRecycled;
         }
     }
 
