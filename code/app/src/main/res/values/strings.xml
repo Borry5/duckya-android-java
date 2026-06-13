@@ -83,6 +83,10 @@
     <string name="queue_completed_count">%1$d 项</string>
     <string name="queue_completed_empty">暂无已完成的任务</string>
     <string name="queue_completed_clear">清空列表</string>
+    <string name="queue_completed_clear_confirm_title">确认清空列表</string>
+    <string name="queue_completed_clear_confirm_message">这会清空已完成任务列表记录，但不会删除系统相册里的原图和压缩图。</string>
+    <string name="queue_completed_clear_confirm_cancel">取消</string>
+    <string name="queue_completed_clear_confirm_action">确认清空</string>
     <string name="queue_recycle_all_original">一键回收原图</string>
     <string name="queue_recycle_original_image">回收原图</string>
     <string name="queue_recycle_compressed_image">回收压缩图</string>

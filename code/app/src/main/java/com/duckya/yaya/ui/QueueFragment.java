@@ -158,10 +158,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             Toast.makeText(requireContext(), R.string.queue_recompress_added, Toast.LENGTH_SHORT).show();
             showMainPage();
         });
-        completedClearButton.setOnClickListener(v -> {
-            queueManager.clearCompletedTasks();
-            showMainPage();
-        });
+        completedClearButton.setOnClickListener(v -> showClearCompletedConfirmDialog());
         completedRecycleAllButton.setOnClickListener(v -> recycleAllOriginals());
         queueManager.addListener(this);
         refreshQueue();
@@ -344,6 +341,19 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             pendingRecycleRequest = null;
             Toast.makeText(requireContext(), R.string.queue_recycle_pending, Toast.LENGTH_SHORT).show();
         }
+    }
+
+    // 清空已完成任务前增加一次确认，避免误触直接清空记录列表。
+    private void showClearCompletedConfirmDialog() {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.queue_completed_clear_confirm_title)
+                .setMessage(R.string.queue_completed_clear_confirm_message)
+                .setNegativeButton(R.string.queue_completed_clear_confirm_cancel, null)
+                .setPositiveButton(R.string.queue_completed_clear_confirm_action, (dialog, which) -> {
+                    queueManager.clearCompletedTasks();
+                    showMainPage();
+                })
+                .show();
     }
 
     private void showCompletedPage() {
