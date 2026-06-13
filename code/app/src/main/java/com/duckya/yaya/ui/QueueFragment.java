@@ -302,13 +302,46 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 targets.add(task);
             }
         }
+        if (shouldConfirmCounterpartRecycle(targets, false)) {
+            showCounterpartRecycleConfirmDialog(targets, false);
+            return;
+        }
         requestRecycle(targets, false);
     }
 
     private void recycleTaskMedia(QueueTask task, boolean outputTarget) {
         List<QueueTask> targets = new ArrayList<>();
         targets.add(task);
+        if (shouldConfirmCounterpartRecycle(targets, outputTarget)) {
+            showCounterpartRecycleConfirmDialog(targets, outputTarget);
+            return;
+        }
         requestRecycle(targets, outputTarget);
+    }
+
+    private boolean shouldConfirmCounterpartRecycle(List<QueueTask> tasks, boolean outputTarget) {
+        for (QueueTask task : tasks) {
+            boolean counterpartRecycled = outputTarget ? task.isOriginalRecycled() : task.isOutputRecycled();
+            boolean alreadyRecycled = outputTarget ? task.isOutputRecycled() : task.isOriginalRecycled();
+            Uri targetUri = outputTarget ? task.getCompressedAssetUri() : task.getMedia().getUri();
+            if (counterpartRecycled && !alreadyRecycled && targetUri != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // 原图和压缩图通常保留其一；当另一份已回收时，继续回收前先明确提醒用户。
+    private void showCounterpartRecycleConfirmDialog(List<QueueTask> tasks, boolean outputTarget) {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.queue_recycle_counterpart_confirm_title)
+                .setMessage(outputTarget
+                        ? R.string.queue_recycle_counterpart_confirm_output_message
+                        : R.string.queue_recycle_counterpart_confirm_original_message)
+                .setNegativeButton(R.string.queue_recycle_counterpart_confirm_cancel, null)
+                .setPositiveButton(R.string.queue_recycle_counterpart_confirm_action,
+                        (dialog, which) -> requestRecycle(tasks, outputTarget))
+                .show();
     }
 
     private void requestRecycle(List<QueueTask> tasks, boolean outputTarget) {

@@ -97,6 +97,11 @@
     <string name="queue_recycle_no_target">没有可回收的媒体</string>
     <string name="queue_recycle_cancelled">已取消回收</string>
     <string name="queue_recycle_done">已提交系统回收</string>
+    <string name="queue_recycle_counterpart_confirm_title">确认继续回收</string>
+    <string name="queue_recycle_counterpart_confirm_original_message">压缩图已经被回收。如果继续回收原图，这组对照文件将都进入系统回收站。</string>
+    <string name="queue_recycle_counterpart_confirm_output_message">原图已经被回收。如果继续回收压缩图，这组对照文件将都进入系统回收站。</string>
+    <string name="queue_recycle_counterpart_confirm_cancel">取消</string>
+    <string name="queue_recycle_counterpart_confirm_action">继续回收</string>
     <string name="queue_recompress_added">已重新加入压缩队列</string>
     <string name="queue_settings">设置</string>
     <string name="queue_settings_title">压缩档位</string>
