@@ -19,7 +19,11 @@ public class QueueTask {
     private boolean outputRecycled;
 
     public QueueTask(MediaItemInfo media, QueueAction action) {
-        this.id = UUID.randomUUID().toString();
+        this(UUID.randomUUID().toString(), media, action);
+    }
+
+    public QueueTask(String id, MediaItemInfo media, QueueAction action) {
+        this.id = id;
         this.media = media;
         this.action = action;
         this.settings = CompressionSettings.light();
@@ -131,6 +135,28 @@ public class QueueTask {
 
     public void setFailureReason(String failureReason) {
         this.failureReason = failureReason;
+    }
+
+    // 从本地缓存恢复队列时一次性写回任务状态，避免外部反射或破坏构造流程。
+    public void restoreState(
+            CompressionSettings settings,
+            QueueStatus status,
+            float progress,
+            long actualOutputBytes,
+            String failureReason,
+            Uri compressedAssetUri,
+            boolean originalRecycled,
+            boolean outputRecycled
+    ) {
+        this.settings = settings;
+        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings);
+        this.status = status == QueueStatus.RUNNING ? QueueStatus.PENDING : status;
+        this.progress = status == QueueStatus.RUNNING ? 0f : Math.max(0f, Math.min(progress, 1f));
+        this.actualOutputBytes = actualOutputBytes;
+        this.failureReason = failureReason;
+        this.compressedAssetUri = compressedAssetUri;
+        this.originalRecycled = originalRecycled;
+        this.outputRecycled = outputRecycled;
     }
 
     public long getEstimatedSavedBytes() {

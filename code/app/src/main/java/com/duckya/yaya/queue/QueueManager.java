@@ -23,6 +23,7 @@ public class QueueManager {
     private final List<QueueChangeListener> listeners = new ArrayList<>();
     private final ExecutorService workerExecutor = Executors.newSingleThreadExecutor();
     private final ImageCompressionWorker imageCompressionWorker = new ImageCompressionWorker();
+    private final QueueTaskStore taskStore = new QueueTaskStore();
     private Context appContext;
     private boolean running;
     private int runToken;
@@ -37,6 +38,9 @@ public class QueueManager {
     // 在应用启动时注入 applicationContext，供后台任务长期使用。
     public synchronized void initialize(Context context) {
         appContext = context.getApplicationContext();
+        if (tasks.isEmpty()) {
+            tasks.addAll(taskStore.load(appContext));
+        }
     }
 
     public synchronized void addTask(MediaItemInfo media, QueueAction action) {
@@ -360,9 +364,16 @@ public class QueueManager {
     }
 
     private void notifyListeners() {
+        persistTasks();
         List<QueueChangeListener> snapshot = new ArrayList<>(listeners);
         for (QueueChangeListener listener : snapshot) {
             listener.onQueueChanged();
+        }
+    }
+
+    private void persistTasks() {
+        if (appContext != null) {
+            taskStore.save(appContext, tasks);
         }
     }
 }
