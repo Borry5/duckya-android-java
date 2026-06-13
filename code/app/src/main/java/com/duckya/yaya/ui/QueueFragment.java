@@ -18,6 +18,7 @@ import androidx.activity.result.IntentSenderRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -33,6 +34,7 @@ import com.duckya.yaya.queue.QueueChangeListener;
 import com.duckya.yaya.queue.QueueManager;
 import com.duckya.yaya.util.FormatUtils;
 import com.duckya.yaya.util.MediaTrashManager;
+import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.io.InputStream;
@@ -492,13 +494,12 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             return;
         }
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_compression_preset, null, false);
-        View lightOption = dialogView.findViewById(R.id.preset_light_option);
-        View strongOption = dialogView.findViewById(R.id.preset_strong_option);
+        MaterialCardView lightOption = dialogView.findViewById(R.id.preset_light_option);
+        MaterialCardView strongOption = dialogView.findViewById(R.id.preset_strong_option);
         RadioButton lightRadio = dialogView.findViewById(R.id.preset_light_radio);
         RadioButton strongRadio = dialogView.findViewById(R.id.preset_strong_radio);
         boolean strongSelected = task.getSettings().getPreset() == CompressionPreset.STRONG;
-        lightRadio.setChecked(!strongSelected);
-        strongRadio.setChecked(strongSelected);
+        bindCompressionPresetSelection(lightOption, strongOption, lightRadio, strongRadio, strongSelected);
 
         androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
                 .setTitle(R.string.queue_settings_title)
@@ -507,13 +508,44 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 .create();
 
         lightOption.setOnClickListener(v -> {
+            bindCompressionPresetSelection(lightOption, strongOption, lightRadio, strongRadio, false);
             queueManager.updateTaskSettings(task.getId(), CompressionSettings.light());
             dialog.dismiss();
         });
         strongOption.setOnClickListener(v -> {
+            bindCompressionPresetSelection(lightOption, strongOption, lightRadio, strongRadio, true);
             queueManager.updateTaskSettings(task.getId(), CompressionSettings.strong());
             dialog.dismiss();
         });
         dialog.show();
+    }
+
+    // 用卡片边框和单选按钮同步展示当前选中的压缩档位。
+    private void bindCompressionPresetSelection(
+            MaterialCardView lightOption,
+            MaterialCardView strongOption,
+            RadioButton lightRadio,
+            RadioButton strongRadio,
+            boolean strongSelected
+    ) {
+        int selectedStroke = ContextCompat.getColor(requireContext(), R.color.yaya_primary);
+        int unselectedStroke = resolveThemeColor(com.google.android.material.R.attr.colorOutlineVariant);
+        lightRadio.setChecked(!strongSelected);
+        strongRadio.setChecked(strongSelected);
+        lightOption.setStrokeColor(strongSelected ? unselectedStroke : selectedStroke);
+        lightOption.setStrokeWidth(strongSelected ? dpToPx(1) : dpToPx(2));
+        strongOption.setStrokeColor(strongSelected ? selectedStroke : unselectedStroke);
+        strongOption.setStrokeWidth(strongSelected ? dpToPx(2) : dpToPx(1));
+    }
+
+    private int resolveThemeColor(int attrResId) {
+        android.util.TypedValue value = new android.util.TypedValue();
+        requireContext().getTheme().resolveAttribute(attrResId, value, true);
+        return value.data;
+    }
+
+    private int dpToPx(int dp) {
+        float density = requireContext().getResources().getDisplayMetrics().density;
+        return Math.round(dp * density);
     }
 }

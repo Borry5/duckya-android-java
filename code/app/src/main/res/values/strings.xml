@@ -100,12 +100,14 @@
     <string name="queue_recompress_added">已重新加入压缩队列</string>
     <string name="queue_settings">设置</string>
     <string name="queue_settings_title">压缩档位</string>
+    <string name="queue_settings_description">请选择当前图片要使用的压缩方案，系统会按所选策略加入后续处理。</string>
     <string name="queue_settings_close">关闭</string>
     <string name="queue_pending_count">待处理 %1$d 项</string>
     <string name="queue_total_saved">预计可节省 %1$s</string>
     <string name="queue_action_compress">压缩</string>
     <string name="queue_action_delete">删除</string>
     <string name="queue_preset_light">视觉无损</string>
+    <string name="queue_preset_light_subtitle">尽量保留原图细节，优先兼顾画质观感。</string>
     <string name="queue_preset_strong">朋友圈画质</string>
     <string name="queue_preset_strong_subtitle">（适合聊天分享）</string>
     <string name="queue_output_estimated">约 %1$s（预估）</string>
