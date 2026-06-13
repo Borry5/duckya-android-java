@@ -498,13 +498,12 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         MaterialCardView strongOption = dialogView.findViewById(R.id.preset_strong_option);
         RadioButton lightRadio = dialogView.findViewById(R.id.preset_light_radio);
         RadioButton strongRadio = dialogView.findViewById(R.id.preset_strong_radio);
+        Button closeButton = dialogView.findViewById(R.id.preset_close_button);
         boolean strongSelected = task.getSettings().getPreset() == CompressionPreset.STRONG;
         bindCompressionPresetSelection(lightOption, strongOption, lightRadio, strongRadio, strongSelected);
 
         androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.queue_settings_title)
                 .setView(dialogView)
-                .setNegativeButton(R.string.queue_settings_close, null)
                 .create();
 
         lightOption.setOnClickListener(v -> {
@@ -517,6 +516,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             queueManager.updateTaskSettings(task.getId(), CompressionSettings.strong());
             dialog.dismiss();
         });
+        closeButton.setOnClickListener(v -> dialog.dismiss());
         dialog.show();
     }
 
