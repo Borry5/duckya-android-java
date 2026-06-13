@@ -45,8 +45,7 @@
     <string name="filter_video">视频</string>
     <string name="sort_size">按体积从大到小</string>
     <string name="sort_bitrate">按视频码率</string>
-    <string name="sort_capture_time">按拍摄时间</string>
-    <string name="sort_added_time">按添加时间</string>
+    <string name="sort_time">按时间</string>
     <string name="preview_type_image">图片</string>
     <string name="preview_type_video">视频</string>
     <string name="preview_resolution">分辨率：%1$d x %2$d</string>

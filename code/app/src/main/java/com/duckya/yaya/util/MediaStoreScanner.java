@@ -62,7 +62,7 @@ public class MediaStoreScanner {
                 MediaStore.Images.Media._ID,
                 MediaStore.Images.Media.DISPLAY_NAME,
                 MediaStore.Images.Media.SIZE,
-                MediaStore.Images.Media.DATE_MODIFIED,
+                MediaStore.Images.Media.DATE_ADDED,
                 MediaStore.Images.Media.WIDTH,
                 MediaStore.Images.Media.HEIGHT
         };
@@ -71,7 +71,7 @@ public class MediaStoreScanner {
                 projection,
                 null,
                 null,
-                MediaStore.Images.Media.DATE_MODIFIED + " DESC"
+                MediaStore.Images.Media.DATE_ADDED + " DESC"
         );
     }
 
@@ -88,7 +88,7 @@ public class MediaStoreScanner {
         int idIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
         int nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME);
         int sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE);
-        int dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED);
+        int dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED);
         int widthIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.WIDTH);
         int heightIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.HEIGHT);
 
@@ -117,7 +117,7 @@ public class MediaStoreScanner {
                 MediaStore.Video.Media._ID,
                 MediaStore.Video.Media.DISPLAY_NAME,
                 MediaStore.Video.Media.SIZE,
-                MediaStore.Video.Media.DATE_MODIFIED,
+                MediaStore.Video.Media.DATE_ADDED,
                 MediaStore.Video.Media.WIDTH,
                 MediaStore.Video.Media.HEIGHT,
                 MediaStore.Video.Media.DURATION
@@ -127,7 +127,7 @@ public class MediaStoreScanner {
                 projection,
                 null,
                 null,
-                MediaStore.Video.Media.DATE_MODIFIED + " DESC"
+                MediaStore.Video.Media.DATE_ADDED + " DESC"
         );
     }
 
@@ -144,7 +144,7 @@ public class MediaStoreScanner {
         int idIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media._ID);
         int nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME);
         int sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.SIZE);
-        int dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_MODIFIED);
+        int dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED);
         int widthIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.WIDTH);
         int heightIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.HEIGHT);
         int durationIndex = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DURATION);

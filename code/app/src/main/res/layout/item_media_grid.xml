@@ -37,6 +37,23 @@
         app:layout_constraintEnd_toEndOf="@id/media_thumbnail"
         app:layout_constraintTop_toTopOf="@id/media_thumbnail" />
 
+    <TextView
+        android:id="@+id/media_corner_badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="6dp"
+        android:background="@drawable/bg_badge"
+        android:maxLines="1"
+        android:paddingStart="6dp"
+        android:paddingTop="2dp"
+        android:paddingEnd="6dp"
+        android:paddingBottom="2dp"
+        android:textColor="@color/yaya_text_primary"
+        android:textSize="10sp"
+        android:visibility="gone"
+        app:layout_constraintStart_toStartOf="@id/media_thumbnail"
+        app:layout_constraintTop_toTopOf="@id/media_thumbnail" />
+
     <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/media_select_checkbox"
         android:layout_width="wrap_content"

@@ -7,9 +7,6 @@
         android:id="@+id/sort_by_bitrate"
         android:title="@string/sort_bitrate" />
     <item
-        android:id="@+id/sort_by_capture_time"
-        android:title="@string/sort_capture_time" />
-    <item
         android:id="@+id/sort_by_added_time"
-        android:title="@string/sort_added_time" />
+        android:title="@string/sort_time" />
 </menu>

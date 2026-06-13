@@ -59,8 +59,15 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     private final Listener listener;
     private HeaderState headerState = HeaderState.initial();
     private RecyclerView attachedRecyclerView;
+    private CornerBadgeMode cornerBadgeMode = CornerBadgeMode.NONE;
     private boolean selectionMode;
     private Set<String> selectedUris;
+
+    public enum CornerBadgeMode {
+        NONE,
+        DATE,
+        VIDEO_BITRATE
+    }
 
     public MediaGridAdapter(Listener listener) {
         this.listener = listener;
@@ -86,6 +93,11 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         this.selectionMode = selectionMode;
         this.selectedUris = selectedUris;
         refreshVisibleSelectionItems();
+    }
+
+    public void setCornerBadgeMode(CornerBadgeMode cornerBadgeMode) {
+        this.cornerBadgeMode = cornerBadgeMode;
+        notifyDataSetChanged();
     }
 
     public void notifySelectionChanged(String uriText) {
@@ -149,6 +161,7 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         mediaHolder.kindBadge.setText(item.getKind() == MediaKind.VIDEO
                 ? formatDuration(item.getDurationMs())
                 : formatMegapixels(item.getWidth(), item.getHeight()));
+        bindCornerBadge(mediaHolder, item);
         updateSelectionUi(mediaHolder, item);
         ThumbnailLoader.loadInto(mediaHolder.thumbnail.getContext(), item, mediaHolder.thumbnail);
         mediaHolder.itemView.setOnClickListener(v -> listener.onMediaClick(item));
@@ -174,6 +187,7 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             return;
         }
         if (position > 0 && holder instanceof MediaViewHolder) {
+            bindCornerBadge((MediaViewHolder) holder, items.get(position - 1));
             updateSelectionUi((MediaViewHolder) holder, items.get(position - 1));
         }
     }
@@ -205,11 +219,45 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 selected ? R.string.scan_checkbox_deselect : R.string.scan_checkbox_select,
                 item.getName()
         ));
+        if (selectionMode) {
+            holder.cornerBadge.setVisibility(View.GONE);
+        }
         animateCheckBoxVisibility(holder.selectionCheckBox, selectionMode);
         holder.itemView.setAlpha(!selectionMode || selected ? 1.0f : 0.72f);
         ViewCompat.setStateDescription(holder.itemView, holder.itemView.getContext().getString(
                 selected ? R.string.scan_item_selected_state : R.string.scan_item_unselected_state
         ));
+    }
+
+    private void bindCornerBadge(MediaViewHolder holder, MediaItemInfo item) {
+        if (selectionMode || cornerBadgeMode == CornerBadgeMode.NONE) {
+            holder.cornerBadge.setVisibility(View.GONE);
+            return;
+        }
+        if (cornerBadgeMode == CornerBadgeMode.VIDEO_BITRATE) {
+            if (item.getKind() != MediaKind.VIDEO || item.getDurationMs() <= 0L) {
+                holder.cornerBadge.setVisibility(View.GONE);
+                return;
+            }
+            holder.cornerBadge.setText(formatVideoBitrate(item));
+            holder.cornerBadge.setVisibility(View.VISIBLE);
+            return;
+        }
+        holder.cornerBadge.setText(formatMonthDay(item.getModifiedTimeMs()));
+        holder.cornerBadge.setVisibility(View.VISIBLE);
+    }
+
+    private String formatMonthDay(long timeMs) {
+        if (timeMs <= 0L) {
+            return "--/--";
+        }
+        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("M/d", Locale.getDefault());
+        return format.format(new java.util.Date(timeMs));
+    }
+
+    private String formatVideoBitrate(MediaItemInfo item) {
+        double mbps = item.getSizeBytes() * 8.0 / (item.getDurationMs() / 1000.0) / 1_000_000.0;
+        return String.format(Locale.getDefault(), "%.1f Mbps", mbps);
     }
 
     // 只在显隐状态真正变化时做轻量动画，避免频繁 bind 影响滚动与点击响应。
@@ -302,6 +350,7 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     static class MediaViewHolder extends RecyclerView.ViewHolder {
         final ImageView thumbnail;
         final TextView kindBadge;
+        final TextView cornerBadge;
         final TextView sizeBadge;
         final MaterialCheckBox selectionCheckBox;
 
@@ -309,6 +358,7 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             super(itemView);
             thumbnail = itemView.findViewById(R.id.media_thumbnail);
             kindBadge = itemView.findViewById(R.id.media_kind_badge);
+            cornerBadge = itemView.findViewById(R.id.media_corner_badge);
             sizeBadge = itemView.findViewById(R.id.media_size_badge);
             selectionCheckBox = itemView.findViewById(R.id.media_select_checkbox);
         }

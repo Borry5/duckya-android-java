@@ -45,7 +45,7 @@ import java.util.concurrent.Executors;
 
 public class ScanFragment extends Fragment {
     private enum FilterMode { ALL, IMAGE, VIDEO }
-    private enum SortMode { SIZE, BITRATE, CAPTURE_TIME, ADDED_TIME }
+    private enum SortMode { SIZE, BITRATE, ADDED_TIME }
 
     private MediaGridAdapter mediaAdapter;
     private ExecutorService scanExecutor;
@@ -312,6 +312,9 @@ public class ScanFragment extends Fragment {
         if (mediaAdapter == null) {
             return;
         }
+        if (sortMode == SortMode.BITRATE && filterMode != FilterMode.VIDEO) {
+            filterMode = FilterMode.VIDEO;
+        }
         List<MediaItemInfo> visibleItems = new ArrayList<>();
         for (MediaItemInfo item : allItems) {
             if (filterMode == FilterMode.IMAGE && item.getKind() != MediaKind.IMAGE) {
@@ -327,6 +330,7 @@ public class ScanFragment extends Fragment {
         }
         Collections.sort(visibleItems, comparatorFor(sortMode));
         mediaAdapter.submitList(visibleItems);
+        mediaAdapter.setCornerBadgeMode(cornerBadgeModeFor(sortMode));
         mediaAdapter.setSelectionMode(selectionMode, selectedUris);
         headerMediaCountText = getString(R.string.scan_item_count, visibleItems.size());
         updateFilterButtonState();
@@ -337,10 +341,20 @@ public class ScanFragment extends Fragment {
         if (mode == SortMode.BITRATE) {
             return bitrateComparator();
         }
-        if (mode == SortMode.CAPTURE_TIME || mode == SortMode.ADDED_TIME) {
+        if (mode == SortMode.ADDED_TIME) {
             return timeComparator();
         }
         return sizeComparator();
+    }
+
+    private MediaGridAdapter.CornerBadgeMode cornerBadgeModeFor(SortMode mode) {
+        if (mode == SortMode.BITRATE) {
+            return MediaGridAdapter.CornerBadgeMode.VIDEO_BITRATE;
+        }
+        if (mode == SortMode.ADDED_TIME) {
+            return MediaGridAdapter.CornerBadgeMode.DATE;
+        }
+        return MediaGridAdapter.CornerBadgeMode.NONE;
     }
 
     private Comparator<MediaItemInfo> timeComparator() {
@@ -507,8 +521,6 @@ public class ScanFragment extends Fragment {
         int checkedId;
         if (sortMode == SortMode.BITRATE) {
             checkedId = R.id.sort_by_bitrate;
-        } else if (sortMode == SortMode.CAPTURE_TIME) {
-            checkedId = R.id.sort_by_capture_time;
         } else if (sortMode == SortMode.ADDED_TIME) {
             checkedId = R.id.sort_by_added_time;
         } else {
@@ -523,8 +535,8 @@ public class ScanFragment extends Fragment {
             int id = item.getItemId();
             if (id == R.id.sort_by_bitrate) {
                 sortMode = SortMode.BITRATE;
-            } else if (id == R.id.sort_by_capture_time) {
-                sortMode = SortMode.CAPTURE_TIME;
+                // 视频码率只对视频有意义，切换时自动收窄到视频结果。
+                filterMode = FilterMode.VIDEO;
             } else if (id == R.id.sort_by_added_time) {
                 sortMode = SortMode.ADDED_TIME;
             } else {
@@ -540,10 +552,8 @@ public class ScanFragment extends Fragment {
     private void updateSortButtonText() {
         if (sortMode == SortMode.BITRATE) {
             headerSortButtonText = getString(R.string.sort_bitrate);
-        } else if (sortMode == SortMode.CAPTURE_TIME) {
-            headerSortButtonText = getString(R.string.sort_capture_time);
         } else if (sortMode == SortMode.ADDED_TIME) {
-            headerSortButtonText = getString(R.string.sort_added_time);
+            headerSortButtonText = getString(R.string.sort_time);
         } else {
             headerSortButtonText = getString(R.string.sort_size);
         }
