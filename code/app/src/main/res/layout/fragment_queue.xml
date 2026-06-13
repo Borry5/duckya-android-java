@@ -305,57 +305,68 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/completed_compare_original"
-                    android:textColor="@color/yaya_text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
                 <com.duckya.yaya.ui.ZoomImageView
                     android:id="@+id/queue_preview_original_image"
                     android:layout_width="match_parent"
                     android:layout_height="330dp"
-                    android:layout_marginTop="8dp"
                     android:background="@color/yaya_surface_high"
                     android:contentDescription="@string/completed_compare_original"
                     android:scaleType="matrix" />
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="32dp"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="6dp"
                     android:gravity="center"
-                    android:text="▲"
-                    android:textColor="@color/yaya_primary"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
+                    android:orientation="horizontal">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:text="@string/completed_compare_center_label"
-                    android:textColor="@color/yaya_text_secondary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:text="@string/completed_compare_original"
+                        android:textColor="@color/yaya_text_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:text="▼"
-                    android:textColor="@color/yaya_primary"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:layout_marginStart="8dp"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:text="▲"
+                        android:textColor="@color/yaya_primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/completed_compare_compressed"
-                    android:textColor="@color/yaya_text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    <Space
+                        android:layout_width="28dp"
+                        android:layout_height="1dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:text="@string/completed_compare_compressed"
+                        android:textColor="@color/yaya_text_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:layout_marginStart="8dp"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:text="▼"
+                        android:textColor="@color/yaya_primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
                 <com.duckya.yaya.ui.ZoomImageView
                     android:id="@+id/queue_preview_compressed_image"
