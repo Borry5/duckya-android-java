@@ -115,7 +115,7 @@
     <string name="queue_preset_light_subtitle">尽量保留原图细节，优先兼顾画质和观感。</string>
     <string name="queue_preset_strong">朋友圈画质</string>
     <string name="queue_preset_strong_subtitle">更适合聊天分享，文件体积更小。</string>
-    <string name="queue_output_estimated">约 %1$s（预估）</string>
+    <string name="queue_output_estimate_hint">预估</string>
     <string name="queue_delete_hint">删除任务将在第 6 阶段接入</string>
     <string name="queue_status_pending">待处理</string>
     <string name="queue_status_running">处理中</string>
@@ -123,7 +123,6 @@
     <string name="queue_status_failed">失败</string>
     <string name="queue_cancel">取消</string>
     <string name="queue_retry">重试</string>
-    <string name="queue_prioritize">优先</string>
     <string name="queue_est_saved">预计省 %1$s</string>
     <string name="queue_saved_done">已节省 %1$s</string>
     <string name="scan_menu_add_compress">添加到压缩队列</string>

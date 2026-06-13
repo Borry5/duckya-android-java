@@ -132,22 +132,6 @@ public class QueueManager {
         notifyListeners();
     }
 
-    public synchronized void prioritizeTask(String taskId) {
-        int index = -1;
-        for (int i = 0; i < tasks.size(); i++) {
-            QueueTask task = tasks.get(i);
-            if (task.getId().equals(taskId) && task.getStatus() == QueueStatus.PENDING) {
-                index = i;
-                break;
-            }
-        }
-        if (index > 0) {
-            QueueTask task = tasks.remove(index);
-            tasks.add(0, task);
-            notifyListeners();
-        }
-    }
-
     public synchronized void updateTaskSettings(String taskId, CompressionSettings settings) {
         QueueTask task = findTask(taskId);
         if (task == null || task.getAction() != QueueAction.COMPRESS || task.getStatus() == QueueStatus.RUNNING) {

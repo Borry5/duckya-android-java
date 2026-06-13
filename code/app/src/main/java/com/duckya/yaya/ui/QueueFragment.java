@@ -254,11 +254,6 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             }
 
             @Override
-            public void onPrioritize(QueueTask task) {
-                queueManager.prioritizeTask(task.getId());
-            }
-
-            @Override
             public void onOpenSettings(QueueTask task) {
                 showCompressionDialog(task);
             }

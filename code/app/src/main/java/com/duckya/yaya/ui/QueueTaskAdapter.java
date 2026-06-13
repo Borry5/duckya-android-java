@@ -33,8 +33,6 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
 
         void onRetry(QueueTask task);
 
-        void onPrioritize(QueueTask task);
-
         void onOpenSettings(QueueTask task);
 
         void onRecycleOriginal(QueueTask task);
@@ -124,6 +122,7 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
     private void bindDynamicState(TaskViewHolder holder, QueueTask task) {
         holder.statusText.setText(holder.itemView.getContext().getString(statusRes(task.getStatus())));
         holder.outputSizeText.setText(buildOutputText(holder.itemView, task));
+        holder.outputEstimateHintText.setVisibility(task.getActualOutputBytes() > 0L ? View.GONE : View.VISIBLE);
         holder.metaText.setText(buildMetaText(holder.itemView, task));
         bindBitrateText(holder, task);
         holder.progressBar.setProgress(Math.round(task.getProgress() * 100f));
@@ -131,12 +130,10 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         holder.completedActionRow.setVisibility(completedMode ? View.VISIBLE : View.GONE);
         holder.cancelButton.setVisibility(!completedMode && task.getStatus() != QueueStatus.DONE ? View.VISIBLE : View.GONE);
         holder.retryButton.setVisibility(!completedMode && task.getStatus() == QueueStatus.FAILED ? View.VISIBLE : View.GONE);
-        holder.prioritizeButton.setVisibility(!completedMode && task.getStatus() == QueueStatus.PENDING ? View.VISIBLE : View.GONE);
         holder.settingsButton.setVisibility(task.getAction() == QueueAction.COMPRESS ? View.VISIBLE : View.GONE);
         bindCompletedActions(holder, task);
         holder.cancelButton.setOnClickListener(v -> listener.onCancel(task));
         holder.retryButton.setOnClickListener(v -> listener.onRetry(task));
-        holder.prioritizeButton.setOnClickListener(v -> listener.onPrioritize(task));
         holder.settingsButton.setOnClickListener(v -> listener.onOpenSettings(task));
         holder.recycleOriginalButton.setOnClickListener(v -> listener.onRecycleOriginal(task));
         holder.recycleOutputButton.setOnClickListener(v -> listener.onRecycleOutput(task));
@@ -190,7 +187,7 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         if (task.getActualOutputBytes() > 0L) {
             return output;
         }
-        return view.getContext().getString(R.string.queue_output_estimated, output);
+        return output;
     }
 
     private void bindBitrateText(TaskViewHolder holder, QueueTask task) {
@@ -301,10 +298,10 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         final ImageButton settingsButton;
         final Button cancelButton;
         final Button retryButton;
-        final Button prioritizeButton;
         final Button recycleOriginalButton;
         final Button recycleOutputButton;
         final Button recompressButton;
+        final TextView outputEstimateHintText;
 
         TaskViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -320,10 +317,10 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
             settingsButton = itemView.findViewById(R.id.queue_settings_button);
             cancelButton = itemView.findViewById(R.id.queue_cancel_button);
             retryButton = itemView.findViewById(R.id.queue_retry_button);
-            prioritizeButton = itemView.findViewById(R.id.queue_prioritize_button);
             recycleOriginalButton = itemView.findViewById(R.id.queue_recycle_original_button);
             recycleOutputButton = itemView.findViewById(R.id.queue_recycle_output_button);
             recompressButton = itemView.findViewById(R.id.queue_recompress_button);
+            outputEstimateHintText = itemView.findViewById(R.id.queue_output_estimate_hint_text);
         }
     }
 }
