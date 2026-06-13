@@ -288,7 +288,7 @@
                 android:layout_weight="1"
                 android:text="@string/completed_compare_title"
                 android:textColor="@color/yaya_text_primary"
-                android:textSize="22dp"
+                android:textSize="22sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -393,6 +393,58 @@
                         android:lineSpacingExtra="5dp"
                         android:padding="14dp"
                         android:textColor="@color/yaya_text_secondary"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/queue_preview_action_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/queue_preview_recycle_original_button"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="0dp"
+                        android:layout_height="42dp"
+                        android:layout_weight="1"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:minWidth="0dp"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        android:text="@string/queue_recycle_original_image"
+                        android:textSize="13sp" />
+
+                    <Button
+                        android:id="@+id/queue_preview_recycle_output_button"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="0dp"
+                        android:layout_height="42dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:minWidth="0dp"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        android:text="@string/queue_recycle_compressed_image"
+                        android:textSize="13sp" />
+
+                    <Button
+                        android:id="@+id/queue_preview_recompress_button"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="0dp"
+                        android:layout_height="42dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:minWidth="0dp"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        android:text="@string/queue_recompress"
                         android:textSize="13sp" />
                 </LinearLayout>
             </LinearLayout>
