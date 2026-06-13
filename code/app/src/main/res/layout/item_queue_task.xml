@@ -30,9 +30,14 @@
                 android:id="@+id/queue_cancel_button"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
-                android:layout_height="30dp"
+                android:layout_height="36dp"
                 android:layout_marginTop="6dp"
+                android:includeFontPadding="true"
+                android:minHeight="36dp"
                 android:minWidth="0dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:textSize="13sp"
                 android:text="@string/queue_cancel" />
         </LinearLayout>
 
