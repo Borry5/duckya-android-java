@@ -2,6 +2,7 @@ package com.duckya.yaya.ui;
 
 import android.app.Activity;
 import android.app.PendingIntent;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -32,6 +33,7 @@ import com.duckya.yaya.util.FormatUtils;
 import com.duckya.yaya.util.MediaTrashManager;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,11 +42,16 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     private QueueTaskAdapter completedAdapter;
     private View mainPage;
     private View completedPage;
+    private View previewPage;
     private TextView savedText;
     private TextView remainingText;
     private TextView emptyText;
     private TextView completedCountText;
     private TextView completedEmptyText;
+    private TextView previewOriginalInfoText;
+    private TextView previewCompressedInfoText;
+    private ZoomImageView previewOriginalImage;
+    private ZoomImageView previewCompressedImage;
     private Button clearButton;
     private Button startButton;
     private Button completedClearButton;
@@ -88,11 +95,16 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         super.onViewCreated(view, savedInstanceState);
         mainPage = view.findViewById(R.id.queue_main_page);
         completedPage = view.findViewById(R.id.queue_completed_page);
+        previewPage = view.findViewById(R.id.queue_preview_page);
         savedText = view.findViewById(R.id.queue_saved_text);
         remainingText = view.findViewById(R.id.queue_remaining_text);
         emptyText = view.findViewById(R.id.queue_empty_text);
         completedCountText = view.findViewById(R.id.queue_completed_count_text);
         completedEmptyText = view.findViewById(R.id.queue_completed_empty_text);
+        previewOriginalInfoText = view.findViewById(R.id.queue_preview_original_info);
+        previewCompressedInfoText = view.findViewById(R.id.queue_preview_compressed_info);
+        previewOriginalImage = view.findViewById(R.id.queue_preview_original_image);
+        previewCompressedImage = view.findViewById(R.id.queue_preview_compressed_image);
         clearButton = view.findViewById(R.id.queue_clear_button);
         startButton = view.findViewById(R.id.queue_start_button);
         completedClearButton = view.findViewById(R.id.queue_completed_clear_button);
@@ -118,6 +130,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         startButton.setOnClickListener(v -> queueManager.toggleRunning());
         completedEntry.setOnClickListener(v -> showCompletedPage());
         view.findViewById(R.id.queue_completed_back_button).setOnClickListener(v -> showMainPage());
+        view.findViewById(R.id.queue_preview_back_button).setOnClickListener(v -> showCompletedPage());
         completedClearButton.setOnClickListener(v -> {
             queueManager.clearCompletedTasks();
             showMainPage();
@@ -135,11 +148,16 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         completedAdapter = null;
         mainPage = null;
         completedPage = null;
+        previewPage = null;
         savedText = null;
         remainingText = null;
         emptyText = null;
         completedCountText = null;
         completedEmptyText = null;
+        previewOriginalInfoText = null;
+        previewCompressedInfoText = null;
+        previewOriginalImage = null;
+        previewCompressedImage = null;
         clearButton = null;
         startButton = null;
         completedClearButton = null;
@@ -159,7 +177,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         if (adapter == null || completedAdapter == null || savedText == null || remainingText == null
                 || emptyText == null || completedCountText == null || completedEmptyText == null
                 || clearButton == null || startButton == null || completedClearButton == null
-                || completedRecycleAllButton == null || completedEntry == null) {
+                || completedRecycleAllButton == null || completedEntry == null || previewPage == null) {
             return;
         }
         java.util.List<QueueTask> activeTasks = queueManager.getActiveTasks();
@@ -225,8 +243,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
 
             @Override
             public void onPreview(QueueTask task) {
-                CompletedTaskPreviewSheet.newInstance(task)
-                        .show(getParentFragmentManager(), "completed_task_preview");
+                showPreviewPage(task);
             }
         };
     }
@@ -298,15 +315,84 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         }
         // 在当前 Fragment 内切换到完整二级页面，保留左上角返回入口。
         mainPage.setVisibility(View.GONE);
+        previewPage.setVisibility(View.GONE);
         completedPage.setVisibility(View.VISIBLE);
     }
 
     private void showMainPage() {
-        if (mainPage == null || completedPage == null) {
+        if (mainPage == null || completedPage == null || previewPage == null) {
             return;
         }
+        previewPage.setVisibility(View.GONE);
         completedPage.setVisibility(View.GONE);
         mainPage.setVisibility(View.VISIBLE);
+    }
+
+    private void showPreviewPage(QueueTask task) {
+        if (mainPage == null || previewPage == null || completedPage == null || previewOriginalImage == null
+                || previewCompressedImage == null || previewOriginalInfoText == null || previewCompressedInfoText == null) {
+            return;
+        }
+        Uri originalUri = task.getMedia().getUri();
+        Uri compressedUri = task.getCompressedAssetUri();
+        previewOriginalImage.setImageURI(originalUri);
+        // 部分异常任务可能没有压缩结果，进入详情页时要避免复用上一张压缩图。
+        previewCompressedImage.setImageURI(compressedUri);
+        previewOriginalInfoText.setText(buildOriginalInfo(task));
+        previewCompressedInfoText.setText(buildCompressedInfo(task));
+        mainPage.setVisibility(View.GONE);
+        completedPage.setVisibility(View.GONE);
+        previewPage.setVisibility(View.VISIBLE);
+    }
+
+    private String buildOriginalInfo(QueueTask task) {
+        int width = task.getMedia().getWidth();
+        int height = task.getMedia().getHeight();
+        return getString(R.string.completed_compare_original) + "\n"
+                + getString(R.string.completed_preview_size) + "：" + FormatUtils.formatSize(task.getMedia().getSizeBytes()) + "\n"
+                + getString(R.string.completed_preview_resolution) + "：" + formatResolution(width, height);
+    }
+
+    private String buildCompressedInfo(QueueTask task) {
+        Uri compressedUri = task.getCompressedAssetUri();
+        if (compressedUri == null || task.getActualOutputBytes() <= 0L) {
+            return getString(R.string.completed_compare_compressed) + "\n"
+                    + getString(R.string.queue_recycle_no_target);
+        }
+        ImageBounds bounds = readImageBounds(compressedUri);
+        return getString(R.string.completed_compare_compressed) + "\n"
+                + getString(R.string.completed_preview_size) + "：" + FormatUtils.formatSize(task.getActualOutputBytes()) + "\n"
+                + getString(R.string.completed_preview_resolution) + "：" + formatResolution(bounds.width, bounds.height);
+    }
+
+    private ImageBounds readImageBounds(Uri uri) {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        try (InputStream inputStream = requireContext().getContentResolver().openInputStream(uri)) {
+            if (inputStream != null) {
+                BitmapFactory.decodeStream(inputStream, null, options);
+            }
+        } catch (Exception ignored) {
+            // 读取压缩图参数失败时显示占位符，不影响图片本身展示。
+        }
+        return new ImageBounds(Math.max(options.outWidth, 0), Math.max(options.outHeight, 0));
+    }
+
+    private String formatResolution(int width, int height) {
+        if (width <= 0 || height <= 0) {
+            return "--";
+        }
+        return width + " x " + height;
+    }
+
+    private static class ImageBounds {
+        private final int width;
+        private final int height;
+
+        private ImageBounds(int width, int height) {
+            this.width = width;
+            this.height = height;
+        }
     }
 
     private static class PendingRecycleRequest {

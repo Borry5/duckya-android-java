@@ -67,6 +67,10 @@
     <string name="completed_preview_duration">时长</string>
     <string name="completed_preview_bitrate">码率</string>
     <string name="completed_preview_open">查看完成任务预览</string>
+    <string name="completed_compare_title">图像对比</string>
+    <string name="completed_compare_original">原图</string>
+    <string name="completed_compare_compressed">压缩图</string>
+    <string name="completed_compare_center_label">放大查看细节差异</string>
     <string name="queue_title">任务队列</string>
     <string name="queue_stage_hint">当前阶段已接入图片压缩，开始队列后会顺序处理图片任务。</string>
     <string name="queue_empty_placeholder">当前无任务</string>
