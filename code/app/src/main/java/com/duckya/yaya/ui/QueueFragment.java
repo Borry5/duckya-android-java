@@ -222,6 +222,12 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 queueManager.retryTask(task.getId());
                 Toast.makeText(requireContext(), R.string.queue_recompress_added, Toast.LENGTH_SHORT).show();
             }
+
+            @Override
+            public void onPreview(QueueTask task) {
+                CompletedTaskPreviewSheet.newInstance(task)
+                        .show(getParentFragmentManager(), "completed_task_preview");
+            }
         };
     }
 

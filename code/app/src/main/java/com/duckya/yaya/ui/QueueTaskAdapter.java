@@ -42,6 +42,8 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         void onRecycleOutput(QueueTask task);
 
         void onRecompress(QueueTask task);
+
+        void onPreview(QueueTask task);
     }
 
     private final List<QueueTask> tasks = new ArrayList<>();
@@ -94,6 +96,15 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         QueueTask task = tasks.get(position);
         holder.sourceSizeText.setText(FormatUtils.formatSize(task.getMedia().getSizeBytes()));
         ThumbnailLoader.loadInto(holder.thumbnail.getContext(), task.getMedia(), holder.thumbnail);
+        holder.thumbnail.setOnClickListener(v -> {
+            if (completedMode) {
+                listener.onPreview(task);
+            }
+        });
+        holder.thumbnail.setClickable(completedMode);
+        holder.thumbnail.setContentDescription(completedMode
+                ? holder.itemView.getContext().getString(R.string.completed_preview_open)
+                : null);
         bindDynamicState(holder, task);
     }
 

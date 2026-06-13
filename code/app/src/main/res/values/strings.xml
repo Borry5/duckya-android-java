@@ -56,6 +56,17 @@
     <string name="preview_action_delete">删除</string>
     <string name="preview_added_compress">已加入压缩队列</string>
     <string name="preview_added_delete">已加入删除队列</string>
+    <string name="completed_preview_title">任务预览</string>
+    <string name="completed_preview_original">原图</string>
+    <string name="completed_preview_compressed">压缩后</string>
+    <string name="completed_preview_original_title">原始文件预览</string>
+    <string name="completed_preview_compressed_title">压缩后预览</string>
+    <string name="completed_preview_type">类型</string>
+    <string name="completed_preview_size">文件大小</string>
+    <string name="completed_preview_resolution">分辨率</string>
+    <string name="completed_preview_duration">时长</string>
+    <string name="completed_preview_bitrate">码率</string>
+    <string name="completed_preview_open">查看完成任务预览</string>
     <string name="queue_title">任务队列</string>
     <string name="queue_stage_hint">当前阶段已接入图片压缩，开始队列后会顺序处理图片任务。</string>
     <string name="queue_empty_placeholder">当前无任务</string>
