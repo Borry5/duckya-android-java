@@ -437,14 +437,18 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 ? R.string.queue_recycle_compressed_video
                 : R.string.queue_recycle_compressed_image);
         if (task.isOriginalRecycled()) {
-            previewRecycleOriginalButton.setText(R.string.queue_recycled);
+            previewRecycleOriginalButton.setText(isVideo
+                    ? R.string.queue_recycled_original_video
+                    : R.string.queue_recycled_original_image);
         }
         if (task.isOutputRecycled()) {
-            previewRecycleOutputButton.setText(R.string.queue_recycled);
+            previewRecycleOutputButton.setText(isVideo
+                    ? R.string.queue_recycled_compressed_video
+                    : R.string.queue_recycled_compressed_image);
         }
         previewRecycleOriginalButton.setEnabled(!task.isOriginalRecycled());
         previewRecycleOutputButton.setEnabled(!task.isOutputRecycled() && task.getCompressedAssetUri() != null);
-        previewRecompressButton.setEnabled(task.getAction() == QueueAction.COMPRESS);
+        previewRecompressButton.setEnabled(task.getAction() == QueueAction.COMPRESS && !task.isOriginalRecycled());
     }
 
     private boolean containsTask(List<QueueTask> tasks, String taskId) {

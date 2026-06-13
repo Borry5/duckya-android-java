@@ -169,14 +169,18 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
                 ? R.string.queue_recycle_compressed_video
                 : R.string.queue_recycle_compressed_image);
         if (task.isOriginalRecycled()) {
-            holder.recycleOriginalButton.setText(R.string.queue_recycled);
+            holder.recycleOriginalButton.setText(isVideo
+                    ? R.string.queue_recycled_original_video
+                    : R.string.queue_recycled_original_image);
         }
         if (task.isOutputRecycled()) {
-            holder.recycleOutputButton.setText(R.string.queue_recycled);
+            holder.recycleOutputButton.setText(isVideo
+                    ? R.string.queue_recycled_compressed_video
+                    : R.string.queue_recycled_compressed_image);
         }
         holder.recycleOriginalButton.setEnabled(!task.isOriginalRecycled());
         holder.recycleOutputButton.setEnabled(!task.isOutputRecycled() && task.getCompressedAssetUri() != null);
-        holder.recompressButton.setEnabled(task.getAction() == QueueAction.COMPRESS);
+        holder.recompressButton.setEnabled(task.getAction() == QueueAction.COMPRESS && !task.isOriginalRecycled());
     }
 
     private String buildOutputText(View view, QueueTask task) {

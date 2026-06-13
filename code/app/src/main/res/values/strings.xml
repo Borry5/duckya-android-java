@@ -92,6 +92,10 @@
     <string name="queue_recycle_original_video">回收原视频</string>
     <string name="queue_recycle_compressed_video">回收压缩视频</string>
     <string name="queue_recycled">已回收</string>
+    <string name="queue_recycled_original_image">原图已回收</string>
+    <string name="queue_recycled_compressed_image">压缩图已回收</string>
+    <string name="queue_recycled_original_video">原视频已回收</string>
+    <string name="queue_recycled_compressed_video">压缩视频已回收</string>
     <string name="queue_recompress">重新压缩</string>
     <string name="queue_recycle_pending">当前系统版本暂不支持安全回收授权</string>
     <string name="queue_recycle_no_target">没有可回收的媒体</string>
