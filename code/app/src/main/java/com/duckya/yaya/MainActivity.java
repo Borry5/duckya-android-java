@@ -68,6 +68,14 @@ public class MainActivity extends AppCompatActivity {
             }
             return false;
         });
+        bottomNavigation.setOnItemReselectedListener(item -> {
+            if (item.getItemId() == R.id.navigation_queue) {
+                Fragment fragment = ensureFragment(R.id.navigation_queue);
+                if (fragment instanceof QueueFragment) {
+                    ((QueueFragment) fragment).showQueueRootPage();
+                }
+            }
+        });
 
         restoreFragmentsIfNeeded();
 
@@ -80,6 +88,9 @@ public class MainActivity extends AppCompatActivity {
     // 复用两个主 Fragment，避免切页时反复销毁相册网格和重新加载缩略图。
     private void showFragment(int navigationId) {
         Fragment targetFragment = ensureFragment(navigationId);
+        if (navigationId == R.id.navigation_queue && targetFragment instanceof QueueFragment) {
+            ((QueueFragment) targetFragment).showQueueRootPage();
+        }
         if (targetFragment == activeFragment) {
             return;
         }

@@ -99,6 +99,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     private PendingRecycleRequest pendingRecycleRequest;
     private QueueTask previewTask;
     private int previewLoadGeneration;
+    private boolean restoreMainPageOnNextViewReady;
 
     private final ActivityResultLauncher<IntentSenderRequest> trashRequestLauncher =
             registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
@@ -274,6 +275,17 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         requireActivity().runOnUiThread(this::refreshQueue);
     }
 
+    // 底部导航再次进入任务队列时，总是回到带“清空”和“开始”的主页面。
+    public void showQueueRootPage() {
+        if (mainPage == null || completedPage == null || previewPage == null) {
+            restoreMainPageOnNextViewReady = true;
+            previewTask = null;
+            return;
+        }
+        restoreMainPageOnNextViewReady = false;
+        showMainPage();
+    }
+
     private void refreshQueue() {
         if (adapter == null || completedAdapter == null || savedText == null || remainingText == null
                 || emptyText == null || completedCountText == null || completedEmptyText == null
@@ -284,6 +296,10 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         }
         java.util.List<QueueTask> activeTasks = queueManager.getActiveTasks();
         java.util.List<QueueTask> completedTasks = queueManager.getCompletedTasks();
+        if (restoreMainPageOnNextViewReady) {
+            showMainPage();
+            restoreMainPageOnNextViewReady = false;
+        }
         adapter.submitList(activeTasks);
         completedAdapter.submitList(completedTasks);
         savedText.setText(FormatUtils.formatSize(queueManager.actualSavedBytes()));
