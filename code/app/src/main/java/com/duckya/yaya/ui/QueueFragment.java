@@ -185,7 +185,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 syncPreviewZoom(previewCompressedImage, state));
         previewCompressedImage.setOnZoomStateChangeListener((source, state) ->
                 syncPreviewZoom(previewOriginalImage, state));
-        clearButton.setOnClickListener(v -> queueManager.clear());
+        clearButton.setOnClickListener(v -> showClearQueueConfirmDialog());
         startButton.setOnClickListener(v -> queueManager.toggleRunning());
         completedEntry.setOnClickListener(v -> showCompletedPage());
         view.findViewById(R.id.queue_completed_back_button).setOnClickListener(v -> showMainPage());
@@ -496,6 +496,17 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             taskIds.add(task.getId());
         }
         return taskIds;
+    }
+
+    // 清空主队列会移除待处理、处理中和失败任务，先确认可以减少误触损失。
+    private void showClearQueueConfirmDialog() {
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.queue_clear_confirm_title)
+                .setMessage(R.string.queue_clear_confirm_message)
+                .setNegativeButton(R.string.queue_clear_confirm_cancel, null)
+                .setPositiveButton(R.string.queue_clear_confirm_action,
+                        (dialog, which) -> queueManager.clear())
+                .show();
     }
 
     // 清空已完成任务前增加一次确认，避免误触直接清空记录列表。

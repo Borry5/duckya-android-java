@@ -75,6 +75,10 @@
     <string name="queue_stage_hint">当前阶段已接入图片压缩，开始队列后会顺序处理图片任务。</string>
     <string name="queue_empty_placeholder">当前无任务</string>
     <string name="queue_clear">清空</string>
+    <string name="queue_clear_confirm_title">确认清空队列</string>
+    <string name="queue_clear_confirm_message">这会移除当前队列里的待处理、处理中和失败任务，不会回收或删除系统相册里的媒体文件。</string>
+    <string name="queue_clear_confirm_cancel">取消</string>
+    <string name="queue_clear_confirm_action">确认清空</string>
     <string name="queue_back">返回</string>
     <string name="queue_start">开始</string>
     <string name="queue_pause">暂停</string>
