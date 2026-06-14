@@ -187,7 +187,13 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         previewCompressedImage.setOnZoomStateChangeListener((source, state) ->
                 syncPreviewZoom(previewOriginalImage, state));
         clearButton.setOnClickListener(v -> showClearQueueConfirmDialog());
-        startButton.setOnClickListener(v -> queueManager.toggleRunning());
+        startButton.setOnClickListener(v -> {
+            if (queueManager.isRunning()) {
+                queueManager.toggleRunning();
+                return;
+            }
+            startQueueWithRecycleCheck();
+        });
         completedEntry.setOnClickListener(v -> showCompletedPage());
         view.findViewById(R.id.queue_completed_back_button).setOnClickListener(v -> showMainPage());
         view.findViewById(R.id.queue_preview_back_button).setOnClickListener(v -> showCompletedPage());
@@ -305,7 +311,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         savedText.setText(FormatUtils.formatSize(queueManager.actualSavedBytes()));
         remainingText.setText(activeTasks.isEmpty()
                 ? "--"
-                : FormatUtils.formatSize(queueManager.estimatedRemainingBytes()));
+                : formatRemainingEstimate());
         emptyText.setVisibility(activeTasks.isEmpty() ? View.VISIBLE : View.GONE);
         clearButton.setEnabled(!activeTasks.isEmpty());
         startButton.setEnabled(!activeTasks.isEmpty());
@@ -327,6 +333,14 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             showMainPage();
         }
         requestPendingQueueRecycleIfNeeded();
+    }
+
+    private String formatRemainingEstimate() {
+        long remainingTimeMs = queueManager.estimatedRemainingTimeMs();
+        if (remainingTimeMs < 0L) {
+            return "--";
+        }
+        return FormatUtils.formatDuration(remainingTimeMs);
     }
 
     private QueueTaskAdapter.Listener createQueueListener() {
@@ -376,6 +390,15 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             }
         }
         return false;
+    }
+
+    private void startQueueWithRecycleCheck() {
+        List<QueueTask> recycleTasks = collectPendingRecycleQueueTasks();
+        if (!recycleTasks.isEmpty()) {
+            requestDeleteQueueRecycle(recycleTasks);
+            return;
+        }
+        queueManager.startIfHasPendingTasks();
     }
 
     private void recycleAllOriginals() {
@@ -504,6 +527,29 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             queueManager.failRecycleTasks(taskIds, getString(R.string.queue_recycle_pending));
             Toast.makeText(requireContext(), R.string.queue_recycle_pending, Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private List<QueueTask> collectPendingRecycleQueueTasks() {
+        List<QueueTask> recycleTasks = new ArrayList<>();
+        for (QueueTask task : queueManager.getActiveTasks()) {
+            if (task.getAction() != QueueAction.DELETE) {
+                continue;
+            }
+            if (task.getStatus() == com.duckya.yaya.model.QueueStatus.PENDING
+                    || task.getStatus() == com.duckya.yaya.model.QueueStatus.WAITING_RECYCLE_CONFIRM) {
+                recycleTasks.add(task);
+            }
+        }
+        return recycleTasks;
+    }
+
+    private void requestDeleteQueueRecycle(List<QueueTask> tasks) {
+        List<String> taskIds = new ArrayList<>();
+        for (QueueTask task : tasks) {
+            taskIds.add(task.getId());
+        }
+        queueManager.prepareRecycleTasks(taskIds);
+        requestPendingQueueRecycleIfNeeded();
     }
 
     private List<String> collectTaskIds(List<QueueTask> tasks) {

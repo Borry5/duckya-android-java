@@ -20,6 +20,7 @@ import java.util.concurrent.Executors;
 
 public class QueueManager {
     private static final QueueManager INSTANCE = new QueueManager();
+    private static final long MILLIS_PER_SECOND = 1000L;
 
     private final List<QueueTask> tasks = new ArrayList<>();
     private final List<QueueChangeListener> listeners = new ArrayList<>();
@@ -30,6 +31,11 @@ public class QueueManager {
     private Context appContext;
     private boolean running;
     private int runToken;
+    private long processedCompressionBytes;
+    private long processedCompressionDurationMs;
+    private String activeCompressionTaskId;
+    private long activeCompressionInputBytes;
+    private long activeCompressionStartedAtMs;
 
     public static QueueManager getInstance() {
         return INSTANCE;
@@ -211,6 +217,39 @@ public class QueueManager {
         return total;
     }
 
+    public synchronized long estimatedRemainingTimeMs() {
+        long remainingBytes = 0L;
+        for (QueueTask task : tasks) {
+            if (task.getAction() != QueueAction.COMPRESS || task.getStatus() == QueueStatus.DONE) {
+                continue;
+            }
+            double remainingRatio = task.getStatus() == QueueStatus.RUNNING
+                    ? Math.max(0d, 1d - task.getProgress())
+                    : 1d;
+            remainingBytes += (long) Math.ceil(task.getMedia().getSizeBytes() * remainingRatio);
+        }
+        if (remainingBytes <= 0L) {
+            return 0L;
+        }
+        double processedBytes = processedCompressionBytes;
+        long elapsedMs = processedCompressionDurationMs;
+        if (activeCompressionTaskId != null && activeCompressionStartedAtMs > 0L && activeCompressionInputBytes > 0L) {
+            QueueTask runningTask = findTask(activeCompressionTaskId);
+            if (runningTask != null && runningTask.getStatus() == QueueStatus.RUNNING) {
+                processedBytes += activeCompressionInputBytes * Math.max(0d, Math.min(runningTask.getProgress(), 1f));
+                elapsedMs += Math.max(0L, System.currentTimeMillis() - activeCompressionStartedAtMs);
+            }
+        }
+        if (processedBytes <= 0d || elapsedMs <= 0L) {
+            return -1L;
+        }
+        double bytesPerSecond = processedBytes / (elapsedMs / (double) MILLIS_PER_SECOND);
+        if (bytesPerSecond <= 0d) {
+            return -1L;
+        }
+        return (long) Math.ceil(remainingBytes / bytesPerSecond * MILLIS_PER_SECOND);
+    }
+
     public synchronized void addListener(QueueChangeListener listener) {
         if (!listeners.contains(listener)) {
             listeners.add(listener);
@@ -246,6 +285,11 @@ public class QueueManager {
                 task.setStatus(QueueStatus.RUNNING);
                 task.setProgress(0f);
                 task.setFailureReason(null);
+                if (task.getAction() == QueueAction.COMPRESS) {
+                    activeCompressionTaskId = task.getId();
+                    activeCompressionInputBytes = task.getMedia().getSizeBytes();
+                    activeCompressionStartedAtMs = System.currentTimeMillis();
+                }
                 notifyListeners();
                 return task;
             }
@@ -370,6 +414,17 @@ public class QueueManager {
         notifyListeners();
     }
 
+    public synchronized void prepareRecycleTasks(Collection<String> taskIds) {
+        for (QueueTask task : tasks) {
+            if (taskIds.contains(task.getId()) && task.getAction() == QueueAction.DELETE) {
+                task.setStatus(QueueStatus.WAITING_RECYCLE_CONFIRM);
+                task.setProgress(0f);
+                task.setFailureReason(null);
+            }
+        }
+        notifyListeners();
+    }
+
     public synchronized void startIfHasPendingTasks() {
         if (running || appContext == null) {
             return;
@@ -413,6 +468,7 @@ public class QueueManager {
             task.setCompressedAssetUri(result.getOutputUri());
             task.setProgress(1f);
             task.setStatus(QueueStatus.DONE);
+            recordCompletedCompression(taskId);
             notifyListeners();
         }
     }
@@ -431,6 +487,7 @@ public class QueueManager {
             task.setCompressedAssetUri(result.getOutputUri());
             task.setProgress(1f);
             task.setStatus(QueueStatus.DONE);
+            recordCompletedCompression(taskId);
             notifyListeners();
         }
     }
@@ -447,6 +504,7 @@ public class QueueManager {
             task.setProgress(0f);
             task.setStatus(QueueStatus.FAILED);
             task.setFailureReason(reason);
+            clearActiveCompressionIfMatches(taskId);
             notifyListeners();
         }
     }
@@ -480,6 +538,29 @@ public class QueueManager {
                 task.setProgress(0f);
             }
         }
+        activeCompressionTaskId = null;
+        activeCompressionInputBytes = 0L;
+        activeCompressionStartedAtMs = 0L;
+    }
+
+    private void recordCompletedCompression(String taskId) {
+        if (activeCompressionTaskId == null || !activeCompressionTaskId.equals(taskId)) {
+            return;
+        }
+        processedCompressionBytes += Math.max(0L, activeCompressionInputBytes);
+        processedCompressionDurationMs += Math.max(0L, System.currentTimeMillis() - activeCompressionStartedAtMs);
+        activeCompressionTaskId = null;
+        activeCompressionInputBytes = 0L;
+        activeCompressionStartedAtMs = 0L;
+    }
+
+    private void clearActiveCompressionIfMatches(String taskId) {
+        if (activeCompressionTaskId == null || !activeCompressionTaskId.equals(taskId)) {
+            return;
+        }
+        activeCompressionTaskId = null;
+        activeCompressionInputBytes = 0L;
+        activeCompressionStartedAtMs = 0L;
     }
 
     private void notifyListeners() {

@@ -82,7 +82,7 @@
     <string name="queue_back">返回</string>
     <string name="queue_start">开始</string>
     <string name="queue_pause">暂停</string>
-    <string name="queue_saved_space">已节省空间</string>
+    <string name="queue_saved_space">累计节省空间</string>
     <string name="queue_remaining_estimate">预计剩余</string>
     <string name="queue_completed_tasks">已完成的任务</string>
     <string name="queue_completed_count">%1$d 项</string>
