@@ -5,44 +5,84 @@
     android:background="@color/yaya_background"
     android:orientation="vertical">
 
-    <LinearLayout
-        android:id="@+id/scan_fixed_selection_bar"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/yaya_background"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="16dp"
-        android:paddingTop="16dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="12dp"
-        android:visibility="gone">
+        android:background="@color/yaya_background">
 
-        <Button
-            android:id="@+id/scan_fixed_selection_compress_button"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:text="@string/scan_selection_compress" />
+        <LinearLayout
+            android:id="@+id/scan_fixed_title_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="24dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="12dp">
 
-        <Button
-            android:id="@+id/scan_fixed_selection_delete_button"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="10dp"
-            android:layout_weight="1"
-            android:backgroundTint="@color/yaya_danger"
-            android:text="@string/scan_selection_delete" />
+            <TextView
+                android:id="@+id/scan_fixed_title_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/scan_title"
+                android:textColor="@color/yaya_text_primary"
+                android:textSize="28sp"
+                android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/scan_fixed_selection_done_button"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:layout_marginStart="10dp"
-            android:minWidth="76dp"
-            android:text="@string/scan_selection_done" />
-    </LinearLayout>
+            <Button
+                android:id="@+id/scan_fixed_select_button"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:text="@string/scan_select" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/scan_fixed_selection_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/yaya_background"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="24dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="12dp"
+            android:visibility="gone">
+
+            <Button
+                android:id="@+id/scan_fixed_selection_compress_button"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="@string/scan_selection_compress" />
+
+            <Button
+                android:id="@+id/scan_fixed_selection_delete_button"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:backgroundTint="@color/yaya_danger"
+                android:text="@string/scan_selection_delete" />
+
+            <Button
+                android:id="@+id/scan_fixed_selection_done_button"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginStart="10dp"
+                android:minWidth="76dp"
+                android:text="@string/scan_selection_done" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#12000000" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/media_recycler"
@@ -52,5 +92,6 @@
         android:clipToPadding="false"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:paddingBottom="12dp" />
+        android:paddingBottom="12dp"
+        android:paddingTop="0dp" />
 </LinearLayout>

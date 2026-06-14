@@ -66,6 +66,8 @@ public class ScanFragment extends Fragment {
     private boolean headerDoneVisible;
     private boolean headerPrimaryEnabled;
     private boolean headerControlsEnabled;
+    private View fixedTitleBar;
+    private Button fixedSelectButton;
     private View fixedSelectionBar;
     private Button fixedCompressButton;
     private Button fixedDeleteButton;
@@ -88,10 +90,13 @@ public class ScanFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         RecyclerView mediaRecycler = view.findViewById(R.id.media_recycler);
+        fixedTitleBar = view.findViewById(R.id.scan_fixed_title_bar);
+        fixedSelectButton = view.findViewById(R.id.scan_fixed_select_button);
         fixedSelectionBar = view.findViewById(R.id.scan_fixed_selection_bar);
         fixedCompressButton = view.findViewById(R.id.scan_fixed_selection_compress_button);
         fixedDeleteButton = view.findViewById(R.id.scan_fixed_selection_delete_button);
         fixedDoneButton = view.findViewById(R.id.scan_fixed_selection_done_button);
+        fixedSelectButton.setOnClickListener(v -> setSelectionMode(true));
         fixedCompressButton.setOnClickListener(v -> addSelectedToQueue(QueueAction.COMPRESS));
         fixedDeleteButton.setOnClickListener(v -> addSelectedToQueue(QueueAction.DELETE));
         fixedDoneButton.setOnClickListener(v -> setSelectionMode(false));
@@ -189,6 +194,8 @@ public class ScanFragment extends Fragment {
             scanExecutor = null;
         }
         mediaAdapter = null;
+        fixedTitleBar = null;
+        fixedSelectButton = null;
         fixedSelectionBar = null;
         fixedCompressButton = null;
         fixedDeleteButton = null;
@@ -467,10 +474,14 @@ public class ScanFragment extends Fragment {
 
     // 顶层固定多选栏不在 RecyclerView 里，滚动媒体列表时仍然停留在页面上方。
     private void updateFixedSelectionBar() {
-        if (fixedSelectionBar == null || fixedCompressButton == null || fixedDeleteButton == null) {
+        if (fixedTitleBar == null || fixedSelectButton == null || fixedSelectionBar == null
+                || fixedCompressButton == null || fixedDeleteButton == null || fixedDoneButton == null) {
             return;
         }
+        fixedTitleBar.setVisibility(selectionMode ? View.GONE : View.VISIBLE);
         fixedSelectionBar.setVisibility(selectionMode ? View.VISIBLE : View.GONE);
+        fixedSelectButton.setEnabled(headerControlsEnabled);
+        fixedSelectButton.setAlpha(headerControlsEnabled ? 1.0f : 0.65f);
         boolean hasSelection = selectedUris.size() > 0;
         fixedCompressButton.setEnabled(hasSelection);
         fixedDeleteButton.setEnabled(hasSelection);

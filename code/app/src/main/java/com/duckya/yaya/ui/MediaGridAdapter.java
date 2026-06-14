@@ -365,8 +365,6 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     static class HeaderViewHolder extends RecyclerView.ViewHolder {
-        final View titleBar;
-        final View selectionBar;
         final TextView statusText;
         final TextView detailText;
         final TextView doneText;
@@ -376,15 +374,9 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         final Button primaryButton;
         final Button filterButton;
         final Button sortButton;
-        final Button selectButton;
-        final Button selectionDeleteButton;
-        final Button selectionCompressButton;
-        final Button selectionDoneButton;
 
         HeaderViewHolder(@NonNull View itemView) {
             super(itemView);
-            titleBar = itemView.findViewById(R.id.scan_title_bar);
-            selectionBar = itemView.findViewById(R.id.scan_selection_bar);
             statusText = itemView.findViewById(R.id.scan_status_text);
             detailText = itemView.findViewById(R.id.scan_detail_text);
             doneText = itemView.findViewById(R.id.scan_done_text);
@@ -394,16 +386,9 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             primaryButton = itemView.findViewById(R.id.scan_primary_button);
             filterButton = itemView.findViewById(R.id.filter_button);
             sortButton = itemView.findViewById(R.id.sort_button);
-            selectButton = itemView.findViewById(R.id.scan_select_button);
-            selectionDeleteButton = itemView.findViewById(R.id.scan_selection_delete_button);
-            selectionCompressButton = itemView.findViewById(R.id.scan_selection_compress_button);
-            selectionDoneButton = itemView.findViewById(R.id.scan_selection_done_button);
         }
 
         void bind(HeaderState state, Listener listener) {
-            // 多选操作栏已经提升到 Fragment 顶层，这里只负责滚动内容里的扫描头部。
-            titleBar.setVisibility(state.selectionMode ? View.GONE : View.VISIBLE);
-            selectionBar.setVisibility(View.GONE);
             statusText.setText(state.statusText);
             detailText.setText(state.detailText);
             doneText.setVisibility(state.doneVisible ? View.VISIBLE : View.INVISIBLE);
@@ -420,13 +405,6 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             primaryButton.setOnClickListener(v -> listener.onPrimaryActionClick());
             filterButton.setOnClickListener(v -> listener.onFilterClick());
             sortButton.setOnClickListener(v -> listener.onSortClick(sortButton));
-            selectButton.setEnabled(state.controlsEnabled);
-            selectButton.setOnClickListener(v -> listener.onSelectModeClick());
-            selectionDeleteButton.setEnabled(state.selectedCount > 0);
-            selectionCompressButton.setEnabled(state.selectedCount > 0);
-            selectionDoneButton.setOnClickListener(v -> listener.onSelectionDoneClick());
-            selectionDeleteButton.setOnClickListener(v -> listener.onSelectionDeleteClick());
-            selectionCompressButton.setOnClickListener(v -> listener.onSelectionCompressClick());
         }
     }
 
