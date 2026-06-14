@@ -149,7 +149,7 @@
     <string name="video_bitrate_title">码率</string>
     <string name="video_bitrate_auto">自动码率</string>
     <string name="video_bitrate_preset_mode">按画质档位设置码率</string>
-    <string name="video_bitrate_one_gb_mode">总文件不超过 1 GB</string>
+    <string name="video_bitrate_one_gb_mode">总文件不超过 1 GB（仅超大视频）</string>
     <string name="video_bitrate_value">%1$.1f Mbps</string>
     <string name="video_bitrate_helper">高视觉无损最高 9 Mbps；均衡约 3.5 Mbps；分享画质约 2 Mbps。</string>
     <string name="video_audio_title">音频</string>

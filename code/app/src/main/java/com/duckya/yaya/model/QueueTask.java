@@ -5,6 +5,8 @@ import android.net.Uri;
 import java.util.UUID;
 
 public class QueueTask {
+    private static final long ONE_GB_BYTES = 1024L * 1024L * 1024L;
+
     private final String id;
     private final MediaItemInfo media;
     private final QueueAction action;
@@ -47,8 +49,8 @@ public class QueueTask {
         if (media.getKind() == MediaKind.VIDEO) {
             if (media.getDurationMs() > 0L) {
                 double seconds = media.getDurationMs() / 1000.0;
-                if (videoSettings.isLimitToOneGb()) {
-                    return Math.min(1024L * 1024L * 1024L, media.getSizeBytes());
+                if (videoSettings.isLimitToOneGb() && media.getSizeBytes() > ONE_GB_BYTES) {
+                    return ONE_GB_BYTES;
                 }
                 double sourceMbps = media.getSizeBytes() * 8.0 / seconds / 1_000_000.0;
                 double targetMbps = Math.min(sourceMbps, videoSettings.getTargetBitrateMbps());
@@ -110,8 +112,8 @@ public class QueueTask {
     }
 
     public void setVideoSettings(VideoCompressionSettings videoSettings) {
-        this.videoSettings = videoSettings;
-        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings, videoSettings);
+        this.videoSettings = normalizeVideoSettingsForMedia(videoSettings);
+        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings, this.videoSettings);
         if (actualOutputBytes > 0L) {
             actualOutputBytes = 0L;
         }
@@ -201,8 +203,8 @@ public class QueueTask {
             boolean outputRecycled
     ) {
         this.settings = settings;
-        this.videoSettings = videoSettings;
-        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings, videoSettings);
+        this.videoSettings = normalizeVideoSettingsForMedia(videoSettings);
+        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings, this.videoSettings);
         this.status = status == QueueStatus.RUNNING ? QueueStatus.PENDING : status;
         this.progress = status == QueueStatus.RUNNING ? 0f : Math.max(0f, Math.min(progress, 1f));
         this.actualOutputBytes = actualOutputBytes;
@@ -211,6 +213,27 @@ public class QueueTask {
         this.compressedAssetUri = compressedAssetUri;
         this.originalRecycled = originalRecycled;
         this.outputRecycled = outputRecycled;
+    }
+
+    private VideoCompressionSettings normalizeVideoSettingsForMedia(VideoCompressionSettings sourceSettings) {
+        if (sourceSettings == null) {
+            return VideoCompressionSettings.balanced();
+        }
+        if (!sourceSettings.isLimitToOneGb() || media.getSizeBytes() > ONE_GB_BYTES) {
+            return sourceSettings;
+        }
+        // 1GB 限制只对超过 1GB 的原视频有意义；小视频恢复旧缓存时自动回到档位码率。
+        return new VideoCompressionSettings(
+                sourceSettings.getPreset(),
+                sourceSettings.getResolutionOption(),
+                sourceSettings.getCodecOption(),
+                sourceSettings.getTargetBitrateMbps(),
+                sourceSettings.isAutoBitrate(),
+                sourceSettings.getAudioMode(),
+                sourceSettings.getFrameRateOption(),
+                false,
+                sourceSettings.isFallbackToH264()
+        );
     }
 
     public long getEstimatedSavedBytes() {

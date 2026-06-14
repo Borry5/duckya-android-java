@@ -42,6 +42,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class VideoCompressionWorker {
+    private static final long ONE_GB_BYTES = 1024L * 1024L * 1024L;
+
     public interface ProgressCallback {
         boolean onProgress(float progress);
     }
@@ -375,7 +377,7 @@ public class VideoCompressionWorker {
 
     private int resolveTargetBitrateBps(MediaItemInfo item, VideoCompressionSettings settings) {
         int targetBps = Math.round(settings.getTargetBitrateMbps() * 1_000_000f);
-        if (settings.isLimitToOneGb() && item.getDurationMs() > 0L) {
+        if (settings.isLimitToOneGb() && item.getSizeBytes() > ONE_GB_BYTES && item.getDurationMs() > 0L) {
             // “不超过 1GB”主要服务微信发送场景，预留一小段码率给原音频轨道。
             double seconds = item.getDurationMs() / 1000.0;
             double totalBps = (1024.0 * 1024.0 * 1024.0 * 8.0) / seconds;

@@ -27,6 +27,7 @@ import java.util.Objects;
 
 public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.TaskViewHolder> {
     private static final String PAYLOAD_DYNAMIC = "payload_dynamic";
+    private static final long ONE_GB_BYTES = 1024L * 1024L * 1024L;
 
     public interface Listener {
         void onCancel(QueueTask task);
@@ -204,7 +205,7 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
     }
 
     private String buildVideoBitrateText(QueueTask task) {
-        if (task.getVideoSettings().isLimitToOneGb()) {
+        if (task.getVideoSettings().isLimitToOneGb() && task.getMedia().getSizeBytes() > ONE_GB_BYTES) {
             return "总文件不超过 1 GB";
         }
         long durationMs = task.getMedia().getDurationMs();

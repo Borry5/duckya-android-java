@@ -60,6 +60,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class QueueFragment extends Fragment implements QueueChangeListener {
+    private static final long ONE_GB_BYTES = 1024L * 1024L * 1024L;
+
     private static final String TAG = "DuckyaPreview";
     private static final int PREVIEW_MAX_LONG_SIDE = 3072;
     private static final long PREVIEW_MAX_BITMAP_BYTES = 48L * 1024L * 1024L;
@@ -837,17 +839,20 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         RadioGroup resolutionGroup = dialogView.findViewById(R.id.video_resolution_group);
         RadioGroup frameRateGroup = dialogView.findViewById(R.id.video_framerate_group);
         RadioGroup bitrateModeGroup = dialogView.findViewById(R.id.video_bitrate_mode_group);
+        RadioButton oneGbOption = dialogView.findViewById(R.id.video_bitrate_mode_one_gb);
         TextView bitrateValueText = dialogView.findViewById(R.id.video_bitrate_value_text);
         Slider bitrateSlider = dialogView.findViewById(R.id.video_bitrate_slider);
         Button closeButton = dialogView.findViewById(R.id.video_settings_close_button);
         Button applyButton = dialogView.findViewById(R.id.video_settings_apply_button);
 
         bindVideoSettingsToDialog(
+                task,
                 task.getVideoSettings(),
                 presetGroup,
                 resolutionGroup,
                 frameRateGroup,
                 bitrateModeGroup,
+                oneGbOption,
                 bitrateValueText,
                 bitrateSlider
         );
@@ -872,7 +877,13 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         frameRateGroup.setOnCheckedChangeListener((group, checkedId) ->
                 saveVideoSettingsFromDialog(task, presetGroup, resolutionGroup, frameRateGroup, bitrateModeGroup, bitrateSlider));
         bitrateModeGroup.setOnCheckedChangeListener((group, checkedId) -> {
-            bindBitrateModeUi(checkedId == R.id.video_bitrate_mode_one_gb, bitrateValueText, bitrateSlider);
+            boolean limitToOneGb = isOneGbLimitAllowed(task)
+                    && checkedId == R.id.video_bitrate_mode_one_gb;
+            if (!limitToOneGb && checkedId == R.id.video_bitrate_mode_one_gb) {
+                bitrateModeGroup.check(R.id.video_bitrate_mode_preset);
+                return;
+            }
+            bindBitrateModeUi(limitToOneGb, bitrateValueText, bitrateSlider);
             saveVideoSettingsFromDialog(task, presetGroup, resolutionGroup, frameRateGroup, bitrateModeGroup, bitrateSlider);
         });
         bitrateSlider.addOnChangeListener((slider, value, fromUser) -> {
@@ -883,6 +894,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         });
         applyButton.setOnClickListener(v -> {
             VideoCompressionSettings settings = collectVideoSettings(
+                    task,
                     presetGroup,
                     resolutionGroup,
                     frameRateGroup,
@@ -897,26 +909,32 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     }
 
     private void bindVideoSettingsToDialog(
+            QueueTask task,
             VideoCompressionSettings settings,
             RadioGroup presetGroup,
             RadioGroup resolutionGroup,
             RadioGroup frameRateGroup,
             RadioGroup bitrateModeGroup,
+            RadioButton oneGbOption,
             TextView bitrateValueText,
             Slider bitrateSlider
     ) {
+        boolean oneGbAllowed = isOneGbLimitAllowed(task);
         presetGroup.check(idForVideoPreset(settings.getPreset()));
         resolutionGroup.check(idForVideoResolution(settings.getResolutionOption()));
         frameRateGroup.check(idForVideoFrameRate(settings.getFrameRateOption()));
-        bitrateModeGroup.check(settings.isLimitToOneGb()
+        oneGbOption.setEnabled(oneGbAllowed);
+        oneGbOption.setAlpha(oneGbAllowed ? 1f : 0.45f);
+        bitrateModeGroup.check(settings.isLimitToOneGb() && oneGbAllowed
                 ? R.id.video_bitrate_mode_one_gb
                 : R.id.video_bitrate_mode_preset);
         bitrateSlider.setValue(settings.getTargetBitrateMbps());
-        bindBitrateModeUi(settings.isLimitToOneGb(), bitrateValueText, bitrateSlider);
+        bindBitrateModeUi(settings.isLimitToOneGb() && oneGbAllowed, bitrateValueText, bitrateSlider);
         bitrateValueText.setText(getString(R.string.video_bitrate_value, settings.getTargetBitrateMbps()));
     }
 
     private VideoCompressionSettings collectVideoSettings(
+            QueueTask task,
             RadioGroup presetGroup,
             RadioGroup resolutionGroup,
             RadioGroup frameRateGroup,
@@ -931,7 +949,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 true,
                 com.duckya.yaya.model.VideoAudioMode.KEEP,
                 videoFrameRateFromId(frameRateGroup.getCheckedRadioButtonId()),
-                bitrateModeGroup.getCheckedRadioButtonId() == R.id.video_bitrate_mode_one_gb,
+                isOneGbLimitAllowed(task)
+                        && bitrateModeGroup.getCheckedRadioButtonId() == R.id.video_bitrate_mode_one_gb,
                 true
         );
     }
@@ -945,6 +964,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             Slider bitrateSlider
     ) {
         VideoCompressionSettings settings = collectVideoSettings(
+                task,
                 presetGroup,
                 resolutionGroup,
                 frameRateGroup,
@@ -952,6 +972,10 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 bitrateSlider
         );
         queueManager.updateVideoTaskSettings(task.getId(), settings);
+    }
+
+    private boolean isOneGbLimitAllowed(QueueTask task) {
+        return task != null && task.getMedia().getSizeBytes() > ONE_GB_BYTES;
     }
 
     private void applyVideoPresetDefaults(
