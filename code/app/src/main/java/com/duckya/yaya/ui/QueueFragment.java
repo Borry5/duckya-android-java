@@ -43,6 +43,7 @@ import com.duckya.yaya.model.QueueTask;
 import com.duckya.yaya.model.VideoCodecOption;
 import com.duckya.yaya.model.VideoCompressionPreset;
 import com.duckya.yaya.model.VideoCompressionSettings;
+import com.duckya.yaya.model.VideoFrameRateOption;
 import com.duckya.yaya.model.VideoResolutionOption;
 import com.duckya.yaya.queue.QueueChangeListener;
 import com.duckya.yaya.queue.QueueManager;
@@ -835,8 +836,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         RadioGroup presetGroup = dialogView.findViewById(R.id.video_preset_group);
         RadioGroup resolutionGroup = dialogView.findViewById(R.id.video_resolution_group);
         RadioGroup codecGroup = dialogView.findViewById(R.id.video_codec_group);
-        CheckBox autoBitrateCheck = dialogView.findViewById(R.id.video_auto_bitrate_check);
-        CheckBox keepFrameRateCheck = dialogView.findViewById(R.id.video_keep_framerate_check);
+        RadioGroup frameRateGroup = dialogView.findViewById(R.id.video_framerate_group);
+        RadioGroup bitrateModeGroup = dialogView.findViewById(R.id.video_bitrate_mode_group);
         CheckBox fallbackH264Check = dialogView.findViewById(R.id.video_fallback_h264_check);
         TextView bitrateValueText = dialogView.findViewById(R.id.video_bitrate_value_text);
         Slider bitrateSlider = dialogView.findViewById(R.id.video_bitrate_slider);
@@ -848,8 +849,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 presetGroup,
                 resolutionGroup,
                 codecGroup,
-                autoBitrateCheck,
-                keepFrameRateCheck,
+                frameRateGroup,
+                bitrateModeGroup,
                 fallbackH264Check,
                 bitrateValueText,
                 bitrateSlider
@@ -863,16 +864,14 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 videoPresetFromId(checkedId),
                 resolutionGroup,
                 codecGroup,
-                autoBitrateCheck,
-                keepFrameRateCheck,
+                frameRateGroup,
+                bitrateModeGroup,
                 fallbackH264Check,
                 bitrateValueText,
                 bitrateSlider
         ));
-        autoBitrateCheck.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            bitrateSlider.setEnabled(!isChecked);
-            bitrateValueText.setEnabled(!isChecked);
-        });
+        bitrateModeGroup.setOnCheckedChangeListener((group, checkedId) ->
+                bindBitrateModeUi(checkedId == R.id.video_bitrate_mode_one_gb, bitrateValueText, bitrateSlider));
         bitrateSlider.addOnChangeListener((slider, value, fromUser) ->
                 bitrateValueText.setText(getString(R.string.video_bitrate_value, value)));
         applyButton.setOnClickListener(v -> {
@@ -880,8 +879,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                     presetGroup,
                     resolutionGroup,
                     codecGroup,
-                    autoBitrateCheck,
-                    keepFrameRateCheck,
+                    frameRateGroup,
+                    bitrateModeGroup,
                     fallbackH264Check,
                     bitrateSlider
             );
@@ -897,8 +896,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             RadioGroup presetGroup,
             RadioGroup resolutionGroup,
             RadioGroup codecGroup,
-            CheckBox autoBitrateCheck,
-            CheckBox keepFrameRateCheck,
+            RadioGroup frameRateGroup,
+            RadioGroup bitrateModeGroup,
             CheckBox fallbackH264Check,
             TextView bitrateValueText,
             Slider bitrateSlider
@@ -906,12 +905,13 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         presetGroup.check(idForVideoPreset(settings.getPreset()));
         resolutionGroup.check(idForVideoResolution(settings.getResolutionOption()));
         codecGroup.check(idForVideoCodec(settings.getCodecOption()));
-        autoBitrateCheck.setChecked(settings.isAutoBitrate());
-        keepFrameRateCheck.setChecked(settings.isKeepFrameRate());
+        frameRateGroup.check(idForVideoFrameRate(settings.getFrameRateOption()));
+        bitrateModeGroup.check(settings.isLimitToOneGb()
+                ? R.id.video_bitrate_mode_one_gb
+                : R.id.video_bitrate_mode_preset);
         fallbackH264Check.setChecked(settings.isFallbackToH264());
         bitrateSlider.setValue(settings.getTargetBitrateMbps());
-        bitrateSlider.setEnabled(!settings.isAutoBitrate());
-        bitrateValueText.setEnabled(!settings.isAutoBitrate());
+        bindBitrateModeUi(settings.isLimitToOneGb(), bitrateValueText, bitrateSlider);
         bitrateValueText.setText(getString(R.string.video_bitrate_value, settings.getTargetBitrateMbps()));
     }
 
@@ -919,8 +919,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             RadioGroup presetGroup,
             RadioGroup resolutionGroup,
             RadioGroup codecGroup,
-            CheckBox autoBitrateCheck,
-            CheckBox keepFrameRateCheck,
+            RadioGroup frameRateGroup,
+            RadioGroup bitrateModeGroup,
             CheckBox fallbackH264Check,
             Slider bitrateSlider
     ) {
@@ -929,9 +929,10 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 videoResolutionFromId(resolutionGroup.getCheckedRadioButtonId()),
                 videoCodecFromId(codecGroup.getCheckedRadioButtonId()),
                 bitrateSlider.getValue(),
-                autoBitrateCheck.isChecked(),
+                true,
                 com.duckya.yaya.model.VideoAudioMode.KEEP,
-                keepFrameRateCheck.isChecked(),
+                videoFrameRateFromId(frameRateGroup.getCheckedRadioButtonId()),
+                bitrateModeGroup.getCheckedRadioButtonId() == R.id.video_bitrate_mode_one_gb,
                 fallbackH264Check.isChecked()
         );
     }
@@ -940,8 +941,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             VideoCompressionPreset preset,
             RadioGroup resolutionGroup,
             RadioGroup codecGroup,
-            CheckBox autoBitrateCheck,
-            CheckBox keepFrameRateCheck,
+            RadioGroup frameRateGroup,
+            RadioGroup bitrateModeGroup,
             CheckBox fallbackH264Check,
             TextView bitrateValueText,
             Slider bitrateSlider
@@ -956,13 +957,19 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         }
         resolutionGroup.check(idForVideoResolution(presetSettings.getResolutionOption()));
         codecGroup.check(idForVideoCodec(presetSettings.getCodecOption()));
-        autoBitrateCheck.setChecked(presetSettings.isAutoBitrate());
-        keepFrameRateCheck.setChecked(presetSettings.isKeepFrameRate());
+        frameRateGroup.check(idForVideoFrameRate(presetSettings.getFrameRateOption()));
+        bitrateModeGroup.check(R.id.video_bitrate_mode_preset);
         fallbackH264Check.setChecked(presetSettings.isFallbackToH264());
         bitrateSlider.setValue(presetSettings.getTargetBitrateMbps());
-        bitrateSlider.setEnabled(!presetSettings.isAutoBitrate());
-        bitrateValueText.setEnabled(!presetSettings.isAutoBitrate());
+        bindBitrateModeUi(false, bitrateValueText, bitrateSlider);
         bitrateValueText.setText(getString(R.string.video_bitrate_value, presetSettings.getTargetBitrateMbps()));
+    }
+
+    private void bindBitrateModeUi(boolean limitToOneGb, TextView bitrateValueText, Slider bitrateSlider) {
+        bitrateSlider.setEnabled(!limitToOneGb);
+        bitrateValueText.setEnabled(!limitToOneGb);
+        bitrateValueText.setAlpha(limitToOneGb ? 0.55f : 1f);
+        bitrateSlider.setAlpha(limitToOneGb ? 0.55f : 1f);
     }
 
     private int idForVideoPreset(VideoCompressionPreset preset) {
@@ -1009,6 +1016,20 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             return VideoResolutionOption.P480;
         }
         return VideoResolutionOption.P1080;
+    }
+
+    private int idForVideoFrameRate(VideoFrameRateOption option) {
+        if (option == VideoFrameRateOption.FPS30) {
+            return R.id.video_framerate_30;
+        }
+        return R.id.video_framerate_original;
+    }
+
+    private VideoFrameRateOption videoFrameRateFromId(int id) {
+        if (id == R.id.video_framerate_30) {
+            return VideoFrameRateOption.FPS30;
+        }
+        return VideoFrameRateOption.ORIGINAL;
     }
 
     private int idForVideoCodec(VideoCodecOption option) {

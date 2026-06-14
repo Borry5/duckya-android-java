@@ -204,6 +204,9 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
     }
 
     private String buildVideoBitrateText(QueueTask task) {
+        if (task.getVideoSettings().isLimitToOneGb()) {
+            return "总文件不超过 1 GB";
+        }
         long durationMs = task.getMedia().getDurationMs();
         if (durationMs <= 0L) {
             return "";
@@ -276,9 +279,11 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         private final com.duckya.yaya.model.VideoCompressionPreset videoPreset;
         private final com.duckya.yaya.model.VideoResolutionOption videoResolution;
         private final com.duckya.yaya.model.VideoCodecOption videoCodec;
+        private final com.duckya.yaya.model.VideoFrameRateOption videoFrameRate;
         private final com.duckya.yaya.model.VideoAudioMode videoAudio;
         private final float videoBitrateMbps;
         private final boolean videoAutoBitrate;
+        private final boolean videoLimitToOneGb;
         private final boolean originalRecycled;
         private final boolean outputRecycled;
 
@@ -293,9 +298,11 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
             videoPreset = task.getVideoSettings().getPreset();
             videoResolution = task.getVideoSettings().getResolutionOption();
             videoCodec = task.getVideoSettings().getCodecOption();
+            videoFrameRate = task.getVideoSettings().getFrameRateOption();
             videoAudio = task.getVideoSettings().getAudioMode();
             videoBitrateMbps = task.getVideoSettings().getTargetBitrateMbps();
             videoAutoBitrate = task.getVideoSettings().isAutoBitrate();
+            videoLimitToOneGb = task.getVideoSettings().isLimitToOneGb();
             originalRecycled = task.isOriginalRecycled();
             outputRecycled = task.isOutputRecycled();
         }
@@ -310,9 +317,11 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
                     && videoPreset == other.videoPreset
                     && videoResolution == other.videoResolution
                     && videoCodec == other.videoCodec
+                    && videoFrameRate == other.videoFrameRate
                     && videoAudio == other.videoAudio
                     && Float.compare(videoBitrateMbps, other.videoBitrateMbps) == 0
                     && videoAutoBitrate == other.videoAutoBitrate
+                    && videoLimitToOneGb == other.videoLimitToOneGb
                     && originalRecycled == other.originalRecycled
                     && outputRecycled == other.outputRecycled;
         }

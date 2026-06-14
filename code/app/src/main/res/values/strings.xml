@@ -124,7 +124,7 @@
     <string name="video_settings_title">视频压缩设置</string>
     <string name="video_settings_description">根据用途选择视频压缩参数。音频会保留原样，画面默认使用 H.265 编码。</string>
     <string name="video_preset_section_title">画质档位</string>
-    <string name="video_preset_high_quality">高清保留</string>
+    <string name="video_preset_high_quality">高视觉无损</string>
     <string name="video_preset_high_quality_subtitle">保留更多细节，适合重要视频。</string>
     <string name="video_preset_balanced">均衡压缩</string>
     <string name="video_preset_balanced_subtitle">默认方案，兼顾体积和清晰度。</string>
@@ -142,10 +142,15 @@
     <string name="video_codec_h265">H.265</string>
     <string name="video_codec_h264">H.264</string>
     <string name="video_codec_helper">推荐 H.265，体积通常更小；如设备不支持，会按设置回退到 H.264。</string>
+    <string name="video_framerate_title">帧率</string>
+    <string name="video_framerate_original">保持原始帧率</string>
+    <string name="video_framerate_30">30 FPS</string>
     <string name="video_bitrate_title">码率</string>
     <string name="video_bitrate_auto">自动码率</string>
+    <string name="video_bitrate_preset_mode">按画质档位设置码率</string>
+    <string name="video_bitrate_one_gb_mode">总文件不超过 1 GB</string>
     <string name="video_bitrate_value">%1$.1f Mbps</string>
-    <string name="video_bitrate_helper">自动码率会按画质档位和源视频复杂度估算。</string>
+    <string name="video_bitrate_helper">高视觉无损最高 9 Mbps；均衡约 3.5 Mbps；分享画质约 2 Mbps。</string>
     <string name="video_audio_title">音频</string>
     <string name="video_audio_keep">保留原音频</string>
     <string name="video_audio_reduce">降低音频码率</string>

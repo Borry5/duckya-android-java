@@ -45,18 +45,23 @@ public class QueueTask {
             return 0L;
         }
         if (media.getKind() == MediaKind.VIDEO) {
+            if (media.getDurationMs() > 0L) {
+                double seconds = media.getDurationMs() / 1000.0;
+                if (videoSettings.isLimitToOneGb()) {
+                    return Math.min(1024L * 1024L * 1024L, media.getSizeBytes());
+                }
+                double sourceMbps = media.getSizeBytes() * 8.0 / seconds / 1_000_000.0;
+                double targetMbps = Math.min(sourceMbps, videoSettings.getTargetBitrateMbps());
+                long targetBytes = (long) (targetMbps * 1_000_000.0 / 8.0 * seconds);
+                return Math.max(Math.min(targetBytes, media.getSizeBytes()), 1L);
+            }
             double ratio;
             if (videoSettings.getPreset() == VideoCompressionPreset.HIGH_QUALITY) {
-                ratio = 0.72;
+                ratio = 0.75;
             } else if (videoSettings.getPreset() == VideoCompressionPreset.SHARE) {
-                ratio = 0.28;
+                ratio = 0.25;
             } else {
-                ratio = 0.48;
-            }
-            if (!videoSettings.isAutoBitrate() && media.getDurationMs() > 0L) {
-                double seconds = media.getDurationMs() / 1000.0;
-                long targetBytes = (long) (videoSettings.getTargetBitrateMbps() * 1_000_000.0 / 8.0 * seconds);
-                return Math.max(targetBytes, 1L);
+                ratio = 0.42;
             }
             return Math.max((long) (media.getSizeBytes() * ratio), 1L);
         }

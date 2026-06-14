@@ -14,6 +14,7 @@ import com.duckya.yaya.model.VideoAudioMode;
 import com.duckya.yaya.model.VideoCodecOption;
 import com.duckya.yaya.model.VideoCompressionPreset;
 import com.duckya.yaya.model.VideoCompressionSettings;
+import com.duckya.yaya.model.VideoFrameRateOption;
 import com.duckya.yaya.model.VideoResolutionOption;
 
 import org.json.JSONArray;
@@ -182,6 +183,8 @@ public class QueueTaskStore {
         object.put("autoBitrate", settings.isAutoBitrate());
         object.put("audioMode", settings.getAudioMode().name());
         object.put("keepFrameRate", settings.isKeepFrameRate());
+        object.put("frameRateOption", settings.getFrameRateOption().name());
+        object.put("limitToOneGb", settings.isLimitToOneGb());
         object.put("fallbackToH264", settings.isFallbackToH264());
         return object;
     }
@@ -197,7 +200,13 @@ public class QueueTaskStore {
                 (float) object.optDouble("targetBitrateMbps", 6.0),
                 object.optBoolean("autoBitrate", true),
                 enumValue(object.optString("audioMode"), VideoAudioMode.KEEP),
-                object.optBoolean("keepFrameRate", true),
+                enumValue(
+                        object.optString("frameRateOption"),
+                        object.optBoolean("keepFrameRate", true)
+                                ? VideoFrameRateOption.ORIGINAL
+                                : VideoFrameRateOption.FPS30
+                ),
+                object.optBoolean("limitToOneGb", false),
                 object.optBoolean("fallbackToH264", true)
         );
     }

@@ -13,16 +13,19 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.effect.Presentation;
+import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.Effects;
 import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.ProgressHolder;
 import androidx.media3.transformer.Transformer;
+import androidx.media3.transformer.VideoEncoderSettings;
 
 import com.duckya.yaya.model.MediaItemInfo;
 import com.duckya.yaya.model.VideoCodecOption;
 import com.duckya.yaya.model.VideoCompressionSettings;
+import com.duckya.yaya.model.VideoFrameRateOption;
 import com.duckya.yaya.model.VideoResolutionOption;
 
 import java.io.File;
@@ -127,6 +130,12 @@ public class VideoCompressionWorker {
         Transformer transformer = new Transformer.Builder(context)
                 .setLooper(thread.getLooper())
                 .setVideoMimeType(videoMimeType(codec))
+                .setEncoderFactory(new DefaultEncoderFactory.Builder(context)
+                        .setRequestedVideoEncoderSettings(new VideoEncoderSettings.Builder()
+                                .setBitrate(resolveTargetBitrateBps(item, settings))
+                                .build())
+                        .setEnableFallback(true)
+                        .build())
                 .addListener(new Transformer.Listener() {
                     @Override
                     public void onCompleted(androidx.media3.transformer.Composition composition, ExportResult exportResult) {
@@ -153,7 +162,7 @@ public class VideoCompressionWorker {
             if (effects != Effects.EMPTY) {
                 itemBuilder.setEffects(effects);
             }
-            if (!settings.isKeepFrameRate()) {
+            if (settings.getFrameRateOption() == VideoFrameRateOption.FPS30) {
                 itemBuilder.setFrameRate(30);
             }
             EditedMediaItem editedItem = itemBuilder.build();
@@ -362,6 +371,22 @@ public class VideoCompressionWorker {
             default:
                 return 0;
         }
+    }
+
+    private int resolveTargetBitrateBps(MediaItemInfo item, VideoCompressionSettings settings) {
+        int targetBps = Math.round(settings.getTargetBitrateMbps() * 1_000_000f);
+        if (settings.isLimitToOneGb() && item.getDurationMs() > 0L) {
+            // “不超过 1GB”主要服务微信发送场景，预留一小段码率给原音频轨道。
+            double seconds = item.getDurationMs() / 1000.0;
+            double totalBps = (1024.0 * 1024.0 * 1024.0 * 8.0) / seconds;
+            targetBps = (int) Math.max(600_000, totalBps - 128_000);
+        }
+        if (item.getDurationMs() > 0L && item.getSizeBytes() > 0L) {
+            double seconds = item.getDurationMs() / 1000.0;
+            int sourceBps = (int) Math.max(1, item.getSizeBytes() * 8.0 / seconds);
+            targetBps = Math.min(targetBps, sourceBps);
+        }
+        return Math.max(600_000, targetBps);
     }
 
     private interface ThrowingRunnable {
