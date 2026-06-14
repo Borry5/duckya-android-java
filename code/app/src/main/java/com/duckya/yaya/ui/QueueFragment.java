@@ -18,8 +18,10 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
+import android.widget.MediaController;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.VideoView;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.IntentSenderRequest;
@@ -78,6 +80,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     private TextView previewCompressedErrorText;
     private ZoomImageView previewOriginalImage;
     private ZoomImageView previewCompressedImage;
+    private VideoView previewOriginalVideo;
+    private VideoView previewCompressedVideo;
     private Button previewRecycleOriginalButton;
     private Button previewRecycleOutputButton;
     private Button previewRecompressButton;
@@ -140,6 +144,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         previewCompressedErrorText = view.findViewById(R.id.queue_preview_compressed_error);
         previewOriginalImage = view.findViewById(R.id.queue_preview_original_image);
         previewCompressedImage = view.findViewById(R.id.queue_preview_compressed_image);
+        previewOriginalVideo = view.findViewById(R.id.queue_preview_original_video);
+        previewCompressedVideo = view.findViewById(R.id.queue_preview_compressed_video);
         previewRecycleOriginalButton = view.findViewById(R.id.queue_preview_recycle_original_button);
         previewRecycleOutputButton = view.findViewById(R.id.queue_preview_recycle_output_button);
         previewRecompressButton = view.findViewById(R.id.queue_preview_recompress_button);
@@ -222,8 +228,16 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         if (previewCompressedImage != null) {
             previewCompressedImage.setOnZoomStateChangeListener(null);
         }
+        if (previewOriginalVideo != null) {
+            previewOriginalVideo.stopPlayback();
+        }
+        if (previewCompressedVideo != null) {
+            previewCompressedVideo.stopPlayback();
+        }
         previewOriginalImage = null;
         previewCompressedImage = null;
+        previewOriginalVideo = null;
+        previewCompressedVideo = null;
         previewRecycleOriginalButton = null;
         previewRecycleOutputButton = null;
         previewRecompressButton = null;
@@ -470,6 +484,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     private void showPreviewPage(QueueTask task) {
         if (mainPage == null || previewPage == null || completedPage == null || previewOriginalImage == null
                 || previewCompressedImage == null || previewOriginalInfoText == null || previewCompressedInfoText == null
+                || previewOriginalVideo == null || previewCompressedVideo == null
                 || previewOriginalErrorText == null || previewCompressedErrorText == null
                 || previewRecycleOriginalButton == null || previewRecycleOutputButton == null || previewRecompressButton == null) {
             return;
@@ -481,12 +496,51 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         mainPage.setVisibility(View.GONE);
         completedPage.setVisibility(View.GONE);
         previewPage.setVisibility(View.VISIBLE);
-        loadPreviewImage(loadGeneration, previewOriginalImage, previewOriginalErrorText, originalUri, "original");
-        // 部分异常任务可能没有压缩结果，进入详情页时要避免复用上一张压缩图。
-        loadPreviewImage(loadGeneration, previewCompressedImage, previewCompressedErrorText, compressedUri, "compressed");
+        if (task.getMedia().getKind() == MediaKind.VIDEO) {
+            bindVideoPreview(previewOriginalVideo, previewOriginalImage, previewOriginalErrorText, originalUri);
+            bindVideoPreview(previewCompressedVideo, previewCompressedImage, previewCompressedErrorText, compressedUri);
+        } else {
+            bindImagePreviewMode();
+            loadPreviewImage(loadGeneration, previewOriginalImage, previewOriginalErrorText, originalUri, "original");
+            // 部分异常任务可能没有压缩结果，进入详情页时要避免复用上一张压缩图。
+            loadPreviewImage(loadGeneration, previewCompressedImage, previewCompressedErrorText, compressedUri, "compressed");
+        }
         previewOriginalInfoText.setText(buildOriginalInfo(task));
         previewCompressedInfoText.setText(buildCompressedInfo(task));
         bindPreviewActions(task);
+    }
+
+    private void bindImagePreviewMode() {
+        previewOriginalVideo.stopPlayback();
+        previewCompressedVideo.stopPlayback();
+        previewOriginalVideo.setVisibility(View.GONE);
+        previewCompressedVideo.setVisibility(View.GONE);
+        previewOriginalImage.setVisibility(View.VISIBLE);
+        previewCompressedImage.setVisibility(View.VISIBLE);
+    }
+
+    private void bindVideoPreview(VideoView videoView, ZoomImageView imageView, TextView errorText, @Nullable Uri uri) {
+        imageView.setImageBitmap(null);
+        imageView.setVisibility(View.GONE);
+        videoView.stopPlayback();
+        videoView.setVisibility(View.VISIBLE);
+        errorText.setVisibility(View.GONE);
+        if (uri == null) {
+            errorText.setVisibility(View.VISIBLE);
+            return;
+        }
+        MediaController controller = new MediaController(requireContext());
+        controller.setAnchorView(videoView);
+        videoView.setMediaController(controller);
+        videoView.setVideoURI(uri);
+        videoView.setOnPreparedListener(player -> {
+            player.setLooping(true);
+            videoView.seekTo(1);
+        });
+        videoView.setOnErrorListener((player, what, extra) -> {
+            errorText.setVisibility(View.VISIBLE);
+            return true;
+        });
     }
 
     private void bindPreviewActions(QueueTask task) {

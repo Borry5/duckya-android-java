@@ -127,6 +127,7 @@ public class QueueManager {
                 task.setProgress(0f);
                 task.setActualOutputBytes(0L);
                 // 重新处理时清掉上一轮压缩产物，避免回收按钮指向旧文件。
+                task.setOriginalAssetUri(null);
                 task.setCompressedAssetUri(null);
                 task.setFailureReason(null);
                 break;
@@ -347,6 +348,7 @@ public class QueueManager {
                 return;
             }
             task.setActualOutputBytes(result.getOutputBytes());
+            task.setOriginalAssetUri(result.getOriginalUri());
             task.setCompressedAssetUri(result.getOutputUri());
             task.setProgress(1f);
             task.setStatus(QueueStatus.DONE);
