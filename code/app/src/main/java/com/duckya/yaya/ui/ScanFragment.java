@@ -12,7 +12,6 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.PopupMenu;
 import android.widget.RadioGroup;
-import android.widget.Switch;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -55,7 +54,6 @@ public class ScanFragment extends Fragment {
     private final Set<String> selectedUris = new HashSet<>();
     private FilterMode filterMode = FilterMode.ALL;
     private SortMode sortMode = SortMode.SIZE;
-    private boolean hideCompressedOutput;
     private boolean selectionMode;
     private String headerStatusText = "";
     private String headerDetailText = "";
@@ -330,9 +328,6 @@ public class ScanFragment extends Fragment {
             if (filterMode == FilterMode.VIDEO && item.getKind() != MediaKind.VIDEO) {
                 continue;
             }
-            if (hideCompressedOutput && item.getName().toLowerCase().contains("_compressed")) {
-                continue;
-            }
             visibleItems.add(item);
         }
         Collections.sort(visibleItems, comparatorFor(sortMode));
@@ -401,7 +396,6 @@ public class ScanFragment extends Fragment {
         BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
         View sheet = LayoutInflater.from(requireContext()).inflate(R.layout.sheet_filter, null, false);
         RadioGroup typeGroup = sheet.findViewById(R.id.filter_type_group);
-        Switch hideCompressedSwitch = sheet.findViewById(R.id.filter_hide_compressed_output_switch);
         if (filterMode == FilterMode.IMAGE) {
             typeGroup.check(R.id.filter_type_image);
         } else if (filterMode == FilterMode.VIDEO) {
@@ -409,7 +403,6 @@ public class ScanFragment extends Fragment {
         } else {
             typeGroup.check(R.id.filter_type_all);
         }
-        hideCompressedSwitch.setChecked(hideCompressedOutput);
         typeGroup.setOnCheckedChangeListener((group, checkedId) -> {
             if (checkedId == R.id.filter_type_image) {
                 filterMode = FilterMode.IMAGE;
@@ -418,10 +411,6 @@ public class ScanFragment extends Fragment {
             } else {
                 filterMode = FilterMode.ALL;
             }
-            applyFilterAndSort();
-        });
-        hideCompressedSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            hideCompressedOutput = isChecked;
             applyFilterAndSort();
         });
         dialog.setContentView(sheet);
@@ -575,7 +564,7 @@ public class ScanFragment extends Fragment {
         if (mediaAdapter == null) {
             return;
         }
-        boolean filtered = filterMode != FilterMode.ALL || hideCompressedOutput;
+        boolean filtered = filterMode != FilterMode.ALL;
         String mediaCountText = selectionMode
                 ? getString(R.string.scan_selection_count, selectedUris.size())
                 : headerMediaCountText;
