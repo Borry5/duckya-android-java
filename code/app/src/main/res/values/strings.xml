@@ -125,7 +125,7 @@
     <string name="video_settings_description">根据用途选择视频压缩参数。音频会保留原样，画面默认使用 H.265 编码。</string>
     <string name="video_preset_section_title">画质档位</string>
     <string name="video_preset_high_quality">视觉无损</string>
-    <string name="video_preset_high_quality_display">视觉无损    6 Mbps</string>
+    <string name="video_preset_high_quality_display">视觉无损    最高 9 Mbps</string>
     <string name="video_preset_high_quality_subtitle">保留更多细节，适合重要视频。</string>
     <string name="video_preset_balanced">均衡压缩</string>
     <string name="video_preset_balanced_display">均衡压缩    最高 1080P 60 FPS</string>
@@ -134,7 +134,7 @@
     <string name="video_preset_share_display">分享画质    720P 30 FPS</string>
     <string name="video_preset_share_subtitle">更小体积，适合聊天和朋友圈。</string>
     <string name="video_preset_custom">自定义</string>
-    <string name="video_preset_helper">切换档位会自动同步推荐的分辨率、编码和码率。</string>
+    <string name="video_preset_helper">切换档位会自动同步推荐的分辨率、帧率和码率。</string>
     <string name="video_custom_helper">选择“自定义”后，才会展开下方的输出规格、码率和帧率设置。</string>
     <string name="video_output_section_title">输出规格</string>
     <string name="video_resolution_title">分辨率</string>
@@ -149,7 +149,7 @@
     <string name="video_codec_h265">H.265</string>
     <string name="video_codec_h264">H.264</string>
     <string name="video_codec_helper">推荐 H.265，体积通常更小；如设备不支持，会按设置回退到 H.264。</string>
-    <string name="video_codec_fixed_hint">默认使用 H.265 编码，失败时会自动尝试回退 H.264；音频保持原样。</string>
+    <string name="video_codec_fixed_hint">默认使用 H.265 编码，失败时自动回退 H.264；音频保持原样。</string>
     <string name="video_framerate_title">帧率</string>
     <string name="video_framerate_original">保持原始帧率</string>
     <string name="video_framerate_60">60 FPS</string>

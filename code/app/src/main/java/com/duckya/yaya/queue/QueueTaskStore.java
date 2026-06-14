@@ -197,7 +197,7 @@ public class QueueTaskStore {
                 enumValue(object.optString("preset"), VideoCompressionPreset.BALANCED),
                 enumValue(object.optString("resolutionOption"), VideoResolutionOption.P1080),
                 enumValue(object.optString("codecOption"), VideoCodecOption.AUTO),
-                (float) object.optDouble("targetBitrateMbps", 6.0),
+                (float) object.optDouble("targetBitrateMbps", 9.0),
                 object.optBoolean("autoBitrate", true),
                 enumValue(object.optString("audioMode"), VideoAudioMode.KEEP),
                 enumValue(

@@ -77,7 +77,7 @@ public class VideoCompressionSettings {
                 VideoCompressionPreset.HIGH_QUALITY,
                 VideoResolutionOption.ORIGINAL,
                 VideoCodecOption.H265,
-                6f,
+                9f,
                 true,
                 VideoAudioMode.KEEP,
                 VideoFrameRateOption.ORIGINAL,

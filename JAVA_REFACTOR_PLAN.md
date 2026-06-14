@@ -1908,7 +1908,7 @@ Android 官方规范约束：
 
 - `VideoCompressionPreset` 新增 `CUSTOM`。
 - `VideoResolutionOption` 新增 `P2160`、`P1440`，`VideoFrameRateOption` 新增 `FPS60`、`FPS24`。
-- 视觉无损预设显示 6 Mbps；均衡压缩显示最高 1080P 60 FPS；分享画质显示 720P 30 FPS。
+- 视觉无损预设显示最高 9 Mbps；均衡压缩显示最高 1080P 60 FPS；分享画质显示 720P 30 FPS。
 - `QueueFragment` 根据是否选择 `CUSTOM` 控制高级参数区显隐。
 - `VideoCompressionWorker` 支持 4K/2K 的目标高度和 60/24 FPS 的输出帧率限制。
 
