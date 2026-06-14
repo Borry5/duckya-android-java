@@ -15,7 +15,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -36,12 +38,18 @@ import com.duckya.yaya.model.CompressionPreset;
 import com.duckya.yaya.model.MediaKind;
 import com.duckya.yaya.model.QueueAction;
 import com.duckya.yaya.model.QueueTask;
+import com.duckya.yaya.model.VideoAudioMode;
+import com.duckya.yaya.model.VideoCodecOption;
+import com.duckya.yaya.model.VideoCompressionPreset;
+import com.duckya.yaya.model.VideoCompressionSettings;
+import com.duckya.yaya.model.VideoResolutionOption;
 import com.duckya.yaya.queue.QueueChangeListener;
 import com.duckya.yaya.queue.QueueManager;
 import com.duckya.yaya.util.FormatUtils;
 import com.duckya.yaya.util.MediaTrashManager;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.slider.Slider;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -737,6 +745,10 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         if (task.getAction() != com.duckya.yaya.model.QueueAction.COMPRESS) {
             return;
         }
+        if (task.getMedia().getKind() == MediaKind.VIDEO) {
+            showVideoCompressionDialog(task);
+            return;
+        }
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_compression_preset, null, false);
         MaterialCardView lightOption = dialogView.findViewById(R.id.preset_light_option);
         MaterialCardView strongOption = dialogView.findViewById(R.id.preset_strong_option);
@@ -762,6 +774,195 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         });
         closeButton.setOnClickListener(v -> dialog.dismiss());
         dialog.show();
+    }
+
+    // 视频任务使用独立设置弹窗，避免图片档位和视频参数混在一起。
+    private void showVideoCompressionDialog(QueueTask task) {
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_video_compression, null, false);
+        RadioGroup presetGroup = dialogView.findViewById(R.id.video_preset_group);
+        RadioGroup resolutionGroup = dialogView.findViewById(R.id.video_resolution_group);
+        RadioGroup codecGroup = dialogView.findViewById(R.id.video_codec_group);
+        RadioGroup audioGroup = dialogView.findViewById(R.id.video_audio_group);
+        CheckBox autoBitrateCheck = dialogView.findViewById(R.id.video_auto_bitrate_check);
+        CheckBox keepFrameRateCheck = dialogView.findViewById(R.id.video_keep_framerate_check);
+        CheckBox fallbackH264Check = dialogView.findViewById(R.id.video_fallback_h264_check);
+        TextView bitrateValueText = dialogView.findViewById(R.id.video_bitrate_value_text);
+        Slider bitrateSlider = dialogView.findViewById(R.id.video_bitrate_slider);
+        Button closeButton = dialogView.findViewById(R.id.video_settings_close_button);
+        Button applyButton = dialogView.findViewById(R.id.video_settings_apply_button);
+
+        bindVideoSettingsToDialog(
+                task.getVideoSettings(),
+                presetGroup,
+                resolutionGroup,
+                codecGroup,
+                audioGroup,
+                autoBitrateCheck,
+                keepFrameRateCheck,
+                fallbackH264Check,
+                bitrateValueText,
+                bitrateSlider
+        );
+
+        androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext())
+                .setView(dialogView)
+                .create();
+
+        autoBitrateCheck.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            bitrateSlider.setEnabled(!isChecked);
+            bitrateValueText.setEnabled(!isChecked);
+        });
+        bitrateSlider.addOnChangeListener((slider, value, fromUser) ->
+                bitrateValueText.setText(getString(R.string.video_bitrate_value, value)));
+        applyButton.setOnClickListener(v -> {
+            VideoCompressionSettings settings = collectVideoSettings(
+                    presetGroup,
+                    resolutionGroup,
+                    codecGroup,
+                    audioGroup,
+                    autoBitrateCheck,
+                    keepFrameRateCheck,
+                    fallbackH264Check,
+                    bitrateSlider
+            );
+            queueManager.updateVideoTaskSettings(task.getId(), settings);
+            dialog.dismiss();
+        });
+        closeButton.setOnClickListener(v -> dialog.dismiss());
+        dialog.show();
+    }
+
+    private void bindVideoSettingsToDialog(
+            VideoCompressionSettings settings,
+            RadioGroup presetGroup,
+            RadioGroup resolutionGroup,
+            RadioGroup codecGroup,
+            RadioGroup audioGroup,
+            CheckBox autoBitrateCheck,
+            CheckBox keepFrameRateCheck,
+            CheckBox fallbackH264Check,
+            TextView bitrateValueText,
+            Slider bitrateSlider
+    ) {
+        presetGroup.check(idForVideoPreset(settings.getPreset()));
+        resolutionGroup.check(idForVideoResolution(settings.getResolutionOption()));
+        codecGroup.check(idForVideoCodec(settings.getCodecOption()));
+        audioGroup.check(idForVideoAudio(settings.getAudioMode()));
+        autoBitrateCheck.setChecked(settings.isAutoBitrate());
+        keepFrameRateCheck.setChecked(settings.isKeepFrameRate());
+        fallbackH264Check.setChecked(settings.isFallbackToH264());
+        bitrateSlider.setValue(settings.getTargetBitrateMbps());
+        bitrateSlider.setEnabled(!settings.isAutoBitrate());
+        bitrateValueText.setEnabled(!settings.isAutoBitrate());
+        bitrateValueText.setText(getString(R.string.video_bitrate_value, settings.getTargetBitrateMbps()));
+    }
+
+    private VideoCompressionSettings collectVideoSettings(
+            RadioGroup presetGroup,
+            RadioGroup resolutionGroup,
+            RadioGroup codecGroup,
+            RadioGroup audioGroup,
+            CheckBox autoBitrateCheck,
+            CheckBox keepFrameRateCheck,
+            CheckBox fallbackH264Check,
+            Slider bitrateSlider
+    ) {
+        return new VideoCompressionSettings(
+                videoPresetFromId(presetGroup.getCheckedRadioButtonId()),
+                videoResolutionFromId(resolutionGroup.getCheckedRadioButtonId()),
+                videoCodecFromId(codecGroup.getCheckedRadioButtonId()),
+                bitrateSlider.getValue(),
+                autoBitrateCheck.isChecked(),
+                videoAudioFromId(audioGroup.getCheckedRadioButtonId()),
+                keepFrameRateCheck.isChecked(),
+                fallbackH264Check.isChecked()
+        );
+    }
+
+    private int idForVideoPreset(VideoCompressionPreset preset) {
+        if (preset == VideoCompressionPreset.HIGH_QUALITY) {
+            return R.id.video_preset_high_quality;
+        }
+        if (preset == VideoCompressionPreset.SHARE) {
+            return R.id.video_preset_share;
+        }
+        return R.id.video_preset_balanced;
+    }
+
+    private VideoCompressionPreset videoPresetFromId(int id) {
+        if (id == R.id.video_preset_high_quality) {
+            return VideoCompressionPreset.HIGH_QUALITY;
+        }
+        if (id == R.id.video_preset_share) {
+            return VideoCompressionPreset.SHARE;
+        }
+        return VideoCompressionPreset.BALANCED;
+    }
+
+    private int idForVideoResolution(VideoResolutionOption option) {
+        if (option == VideoResolutionOption.ORIGINAL) {
+            return R.id.video_resolution_original;
+        }
+        if (option == VideoResolutionOption.P720) {
+            return R.id.video_resolution_720;
+        }
+        if (option == VideoResolutionOption.P480) {
+            return R.id.video_resolution_480;
+        }
+        return R.id.video_resolution_1080;
+    }
+
+    private VideoResolutionOption videoResolutionFromId(int id) {
+        if (id == R.id.video_resolution_original) {
+            return VideoResolutionOption.ORIGINAL;
+        }
+        if (id == R.id.video_resolution_720) {
+            return VideoResolutionOption.P720;
+        }
+        if (id == R.id.video_resolution_480) {
+            return VideoResolutionOption.P480;
+        }
+        return VideoResolutionOption.P1080;
+    }
+
+    private int idForVideoCodec(VideoCodecOption option) {
+        if (option == VideoCodecOption.H265) {
+            return R.id.video_codec_h265;
+        }
+        if (option == VideoCodecOption.H264) {
+            return R.id.video_codec_h264;
+        }
+        return R.id.video_codec_auto;
+    }
+
+    private VideoCodecOption videoCodecFromId(int id) {
+        if (id == R.id.video_codec_h265) {
+            return VideoCodecOption.H265;
+        }
+        if (id == R.id.video_codec_h264) {
+            return VideoCodecOption.H264;
+        }
+        return VideoCodecOption.AUTO;
+    }
+
+    private int idForVideoAudio(VideoAudioMode mode) {
+        if (mode == VideoAudioMode.REDUCE) {
+            return R.id.video_audio_reduce;
+        }
+        if (mode == VideoAudioMode.MUTE) {
+            return R.id.video_audio_mute;
+        }
+        return R.id.video_audio_keep;
+    }
+
+    private VideoAudioMode videoAudioFromId(int id) {
+        if (id == R.id.video_audio_reduce) {
+            return VideoAudioMode.REDUCE;
+        }
+        if (id == R.id.video_audio_mute) {
+            return VideoAudioMode.MUTE;
+        }
+        return VideoAudioMode.KEEP;
     }
 
     // 用卡片边框和单选按钮同步展示当前选中的压缩档位。

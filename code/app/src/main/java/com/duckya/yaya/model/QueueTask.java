@@ -9,6 +9,7 @@ public class QueueTask {
     private final MediaItemInfo media;
     private final QueueAction action;
     private CompressionSettings settings;
+    private VideoCompressionSettings videoSettings;
     private QueueStatus status;
     private float progress;
     private long estimatedOutputBytes;
@@ -28,14 +29,36 @@ public class QueueTask {
         this.media = media;
         this.action = action;
         this.settings = CompressionSettings.light();
+        this.videoSettings = VideoCompressionSettings.balanced();
         this.status = QueueStatus.PENDING;
         this.progress = 0f;
-        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings);
+        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings, videoSettings);
     }
 
-    private long estimateOutputBytes(MediaItemInfo media, QueueAction action, CompressionSettings settings) {
+    private long estimateOutputBytes(
+            MediaItemInfo media,
+            QueueAction action,
+            CompressionSettings settings,
+            VideoCompressionSettings videoSettings
+    ) {
         if (action == QueueAction.DELETE) {
             return 0L;
+        }
+        if (media.getKind() == MediaKind.VIDEO) {
+            double ratio;
+            if (videoSettings.getPreset() == VideoCompressionPreset.HIGH_QUALITY) {
+                ratio = 0.72;
+            } else if (videoSettings.getPreset() == VideoCompressionPreset.SHARE) {
+                ratio = 0.28;
+            } else {
+                ratio = 0.48;
+            }
+            if (!videoSettings.isAutoBitrate() && media.getDurationMs() > 0L) {
+                double seconds = media.getDurationMs() / 1000.0;
+                long targetBytes = (long) (videoSettings.getTargetBitrateMbps() * 1_000_000.0 / 8.0 * seconds);
+                return Math.max(targetBytes, 1L);
+            }
+            return Math.max((long) (media.getSizeBytes() * ratio), 1L);
         }
         // 队列里只是预估体积，真实结果仍以压缩完成后的文件大小为准。
         double ratio;
@@ -71,7 +94,19 @@ public class QueueTask {
 
     public void setSettings(CompressionSettings settings) {
         this.settings = settings;
-        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings);
+        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings, videoSettings);
+        if (actualOutputBytes > 0L) {
+            actualOutputBytes = 0L;
+        }
+    }
+
+    public VideoCompressionSettings getVideoSettings() {
+        return videoSettings;
+    }
+
+    public void setVideoSettings(VideoCompressionSettings videoSettings) {
+        this.videoSettings = videoSettings;
+        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings, videoSettings);
         if (actualOutputBytes > 0L) {
             actualOutputBytes = 0L;
         }
@@ -150,6 +185,7 @@ public class QueueTask {
     // 从本地缓存恢复队列时一次性写回任务状态，避免外部反射或破坏构造流程。
     public void restoreState(
             CompressionSettings settings,
+            VideoCompressionSettings videoSettings,
             QueueStatus status,
             float progress,
             long actualOutputBytes,
@@ -160,7 +196,8 @@ public class QueueTask {
             boolean outputRecycled
     ) {
         this.settings = settings;
-        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings);
+        this.videoSettings = videoSettings;
+        this.estimatedOutputBytes = estimateOutputBytes(media, action, settings, videoSettings);
         this.status = status == QueueStatus.RUNNING ? QueueStatus.PENDING : status;
         this.progress = status == QueueStatus.RUNNING ? 0f : Math.max(0f, Math.min(progress, 1f));
         this.actualOutputBytes = actualOutputBytes;

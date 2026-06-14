@@ -8,7 +8,9 @@ import com.duckya.yaya.model.QueueAction;
 import com.duckya.yaya.model.QueueStatus;
 import com.duckya.yaya.model.QueueTask;
 import com.duckya.yaya.model.CompressionSettings;
+import com.duckya.yaya.model.VideoCompressionSettings;
 import com.duckya.yaya.util.ImageCompressionWorker;
+import com.duckya.yaya.util.VideoCompressionWorker;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,6 +25,7 @@ public class QueueManager {
     private final List<QueueChangeListener> listeners = new ArrayList<>();
     private final ExecutorService workerExecutor = Executors.newSingleThreadExecutor();
     private final ImageCompressionWorker imageCompressionWorker = new ImageCompressionWorker();
+    private final VideoCompressionWorker videoCompressionWorker = new VideoCompressionWorker();
     private final QueueTaskStore taskStore = new QueueTaskStore();
     private Context appContext;
     private boolean running;
@@ -145,6 +148,19 @@ public class QueueManager {
         notifyListeners();
     }
 
+    public synchronized void updateVideoTaskSettings(String taskId, VideoCompressionSettings settings) {
+        QueueTask task = findTask(taskId);
+        if (task == null || task.getAction() != QueueAction.COMPRESS || task.getStatus() == QueueStatus.RUNNING) {
+            return;
+        }
+        task.setVideoSettings(settings);
+        task.setStatus(QueueStatus.PENDING);
+        task.setProgress(0f);
+        task.setCompressedAssetUri(null);
+        task.setFailureReason(null);
+        notifyListeners();
+    }
+
     public synchronized int pendingCount() {
         int count = 0;
         for (QueueTask task : tasks) {
@@ -231,9 +247,14 @@ public class QueueManager {
                 failTask(task.getId(), "删除功能将在第 6 阶段接入", token);
                 return;
             }
-            // 第 5 阶段只处理图片压缩，视频转码放到后续阶段接入。
-            if (task.getMedia().getKind() != MediaKind.IMAGE) {
-                failTask(task.getId(), "视频压缩将在第 8 阶段接入", token);
+            if (task.getMedia().getKind() == MediaKind.VIDEO) {
+                VideoCompressionWorker.Result result = videoCompressionWorker.compress(
+                        appContext,
+                        task.getMedia(),
+                        task.getVideoSettings(),
+                        progress -> updateTaskProgress(task.getId(), progress, token)
+                );
+                completeVideoTask(task.getId(), result, token);
                 return;
             }
             ImageCompressionWorker.Result result = imageCompressionWorker.compress(
@@ -309,6 +330,23 @@ public class QueueManager {
             }
             task.setActualOutputBytes(result.getOutputBytes());
             task.setOriginalAssetUri(result.getOriginalUri());
+            task.setCompressedAssetUri(result.getOutputUri());
+            task.setProgress(1f);
+            task.setStatus(QueueStatus.DONE);
+            notifyListeners();
+        }
+    }
+
+    private void completeVideoTask(String taskId, VideoCompressionWorker.Result result, int token) {
+        synchronized (this) {
+            if (!isActiveRun(token)) {
+                return;
+            }
+            QueueTask task = findTask(taskId);
+            if (task == null) {
+                return;
+            }
+            task.setActualOutputBytes(result.getOutputBytes());
             task.setCompressedAssetUri(result.getOutputUri());
             task.setProgress(1f);
             task.setStatus(QueueStatus.DONE);

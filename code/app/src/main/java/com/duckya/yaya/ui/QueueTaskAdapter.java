@@ -215,6 +215,17 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
     }
 
     private String presetLabel(View view, QueueTask task) {
+        if (task.getMedia().getKind() == MediaKind.VIDEO) {
+            switch (task.getVideoSettings().getPreset()) {
+                case HIGH_QUALITY:
+                    return view.getContext().getString(R.string.video_preset_high_quality);
+                case SHARE:
+                    return view.getContext().getString(R.string.video_preset_share);
+                case BALANCED:
+                default:
+                    return view.getContext().getString(R.string.video_preset_balanced);
+            }
+        }
         if (task.getSettings().getPreset() == com.duckya.yaya.model.CompressionPreset.STRONG) {
             return view.getContext().getString(R.string.queue_preset_strong);
         }
@@ -262,6 +273,12 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         private final long actualOutputBytes;
         private final String failureReason;
         private final com.duckya.yaya.model.CompressionPreset preset;
+        private final com.duckya.yaya.model.VideoCompressionPreset videoPreset;
+        private final com.duckya.yaya.model.VideoResolutionOption videoResolution;
+        private final com.duckya.yaya.model.VideoCodecOption videoCodec;
+        private final com.duckya.yaya.model.VideoAudioMode videoAudio;
+        private final float videoBitrateMbps;
+        private final boolean videoAutoBitrate;
         private final boolean originalRecycled;
         private final boolean outputRecycled;
 
@@ -273,6 +290,12 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
             actualOutputBytes = task.getActualOutputBytes();
             failureReason = task.getFailureReason();
             preset = task.getSettings().getPreset();
+            videoPreset = task.getVideoSettings().getPreset();
+            videoResolution = task.getVideoSettings().getResolutionOption();
+            videoCodec = task.getVideoSettings().getCodecOption();
+            videoAudio = task.getVideoSettings().getAudioMode();
+            videoBitrateMbps = task.getVideoSettings().getTargetBitrateMbps();
+            videoAutoBitrate = task.getVideoSettings().isAutoBitrate();
             originalRecycled = task.isOriginalRecycled();
             outputRecycled = task.isOutputRecycled();
         }
@@ -284,6 +307,12 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
                     && actualOutputBytes == other.actualOutputBytes
                     && Objects.equals(failureReason, other.failureReason)
                     && preset == other.preset
+                    && videoPreset == other.videoPreset
+                    && videoResolution == other.videoResolution
+                    && videoCodec == other.videoCodec
+                    && videoAudio == other.videoAudio
+                    && Float.compare(videoBitrateMbps, other.videoBitrateMbps) == 0
+                    && videoAutoBitrate == other.videoAutoBitrate
                     && originalRecycled == other.originalRecycled
                     && outputRecycled == other.outputRecycled;
         }

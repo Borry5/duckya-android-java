@@ -10,6 +10,11 @@ import com.duckya.yaya.model.MediaKind;
 import com.duckya.yaya.model.QueueAction;
 import com.duckya.yaya.model.QueueStatus;
 import com.duckya.yaya.model.QueueTask;
+import com.duckya.yaya.model.VideoAudioMode;
+import com.duckya.yaya.model.VideoCodecOption;
+import com.duckya.yaya.model.VideoCompressionPreset;
+import com.duckya.yaya.model.VideoCompressionSettings;
+import com.duckya.yaya.model.VideoResolutionOption;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -78,6 +83,7 @@ public class QueueTaskStore {
             object.put("media", mediaToJson(task.getMedia()));
             object.put("action", task.getAction().name());
             object.put("settings", settingsToJson(task.getSettings()));
+            object.put("videoSettings", videoSettingsToJson(task.getVideoSettings()));
             object.put("status", task.getStatus().name());
             object.put("progress", task.getProgress());
             object.put("actualOutputBytes", task.getActualOutputBytes());
@@ -129,6 +135,7 @@ public class QueueTaskStore {
         String compressedUriText = object.optString("compressedAssetUri", "");
         task.restoreState(
                 settingsFromJson(object.optJSONObject("settings")),
+                videoSettingsFromJson(object.optJSONObject("videoSettings")),
                 QueueStatus.valueOf(object.optString("status", QueueStatus.PENDING.name())),
                 (float) object.optDouble("progress", 0.0),
                 object.optLong("actualOutputBytes", 0L),
@@ -164,5 +171,45 @@ public class QueueTaskStore {
                 object.optInt("jpegQuality"),
                 object.optBoolean("adaptiveVisualLossless", false)
         );
+    }
+
+    private JSONObject videoSettingsToJson(VideoCompressionSettings settings) throws JSONException {
+        JSONObject object = new JSONObject();
+        object.put("preset", settings.getPreset().name());
+        object.put("resolutionOption", settings.getResolutionOption().name());
+        object.put("codecOption", settings.getCodecOption().name());
+        object.put("targetBitrateMbps", settings.getTargetBitrateMbps());
+        object.put("autoBitrate", settings.isAutoBitrate());
+        object.put("audioMode", settings.getAudioMode().name());
+        object.put("keepFrameRate", settings.isKeepFrameRate());
+        object.put("fallbackToH264", settings.isFallbackToH264());
+        return object;
+    }
+
+    private VideoCompressionSettings videoSettingsFromJson(JSONObject object) {
+        if (object == null) {
+            return VideoCompressionSettings.balanced();
+        }
+        return new VideoCompressionSettings(
+                enumValue(object.optString("preset"), VideoCompressionPreset.BALANCED),
+                enumValue(object.optString("resolutionOption"), VideoResolutionOption.P1080),
+                enumValue(object.optString("codecOption"), VideoCodecOption.AUTO),
+                (float) object.optDouble("targetBitrateMbps", 6.0),
+                object.optBoolean("autoBitrate", true),
+                enumValue(object.optString("audioMode"), VideoAudioMode.KEEP),
+                object.optBoolean("keepFrameRate", true),
+                object.optBoolean("fallbackToH264", true)
+        );
+    }
+
+    private <T extends Enum<T>> T enumValue(String name, T fallback) {
+        if (name == null || name.isEmpty()) {
+            return fallback;
+        }
+        try {
+            return Enum.valueOf(fallback.getDeclaringClass(), name);
+        } catch (IllegalArgumentException e) {
+            return fallback;
+        }
     }
 }
