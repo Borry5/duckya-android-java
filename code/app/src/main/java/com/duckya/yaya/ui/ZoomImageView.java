@@ -21,6 +21,8 @@ public class ZoomImageView extends AppCompatImageView {
     private ScaleGestureDetector scaleDetector;
     private float currentScale = MIN_SCALE;
     private boolean dragging;
+    @Nullable
+    private OnZoomStateChangeListener zoomStateChangeListener;
 
     public ZoomImageView(Context context) {
         super(context);
@@ -47,6 +49,42 @@ public class ZoomImageView extends AppCompatImageView {
         currentScale = MIN_SCALE;
         imageMatrixValue.reset();
         applyFitCenterMatrix();
+        setImageMatrix(imageMatrixValue);
+    }
+
+    public void setOnZoomStateChangeListener(@Nullable OnZoomStateChangeListener listener) {
+        zoomStateChangeListener = listener;
+    }
+
+    public void applyZoomState(@Nullable ZoomState state) {
+        Drawable drawable = getDrawable();
+        if (state == null || drawable == null || getWidth() <= 0 || getHeight() <= 0) {
+            return;
+        }
+        int drawableWidth = drawable.getIntrinsicWidth();
+        int drawableHeight = drawable.getIntrinsicHeight();
+        if (drawableWidth <= 0 || drawableHeight <= 0) {
+            return;
+        }
+
+        float targetScale = clamp(state.scale, MIN_SCALE, MAX_SCALE);
+        float normalizedCenterX = clamp(state.normalizedCenterX, 0f, 1f);
+        float normalizedCenterY = clamp(state.normalizedCenterY, 0f, 1f);
+        float viewCenterX = getWidth() * 0.5f;
+        float viewCenterY = getHeight() * 0.5f;
+
+        imageMatrixValue.reset();
+        applyFitCenterMatrix();
+        imageMatrixValue.postScale(targetScale, targetScale, viewCenterX, viewCenterY);
+
+        // 用归一化图片中心同步，避免原图和压缩图分辨率不同导致位置错位。
+        float[] mappedPoint = new float[] {
+                drawableWidth * normalizedCenterX,
+                drawableHeight * normalizedCenterY
+        };
+        imageMatrixValue.mapPoints(mappedPoint);
+        imageMatrixValue.postTranslate(viewCenterX - mappedPoint[0], viewCenterY - mappedPoint[1]);
+        currentScale = targetScale;
         setImageMatrix(imageMatrixValue);
     }
 
@@ -108,6 +146,7 @@ public class ZoomImageView extends AppCompatImageView {
                     float dy = event.getY() - lastPoint.y;
                     imageMatrixValue.postTranslate(dx, dy);
                     setImageMatrix(imageMatrixValue);
+                    notifyZoomStateChanged();
                     lastPoint.set(event.getX(), event.getY());
                 }
                 break;
@@ -125,7 +164,59 @@ public class ZoomImageView extends AppCompatImageView {
             imageMatrixValue.postScale(safeFactor, safeFactor, detector.getFocusX(), detector.getFocusY());
             currentScale = targetScale;
             setImageMatrix(imageMatrixValue);
+            notifyZoomStateChanged();
             return true;
+        }
+    }
+
+    private void notifyZoomStateChanged() {
+        if (zoomStateChangeListener != null) {
+            zoomStateChangeListener.onZoomStateChanged(this, buildZoomState());
+        }
+    }
+
+    private ZoomState buildZoomState() {
+        Drawable drawable = getDrawable();
+        if (drawable == null || getWidth() <= 0 || getHeight() <= 0) {
+            return new ZoomState(currentScale, 0.5f, 0.5f);
+        }
+        int drawableWidth = drawable.getIntrinsicWidth();
+        int drawableHeight = drawable.getIntrinsicHeight();
+        if (drawableWidth <= 0 || drawableHeight <= 0) {
+            return new ZoomState(currentScale, 0.5f, 0.5f);
+        }
+        Matrix inverse = new Matrix();
+        if (!imageMatrixValue.invert(inverse)) {
+            return new ZoomState(currentScale, 0.5f, 0.5f);
+        }
+        float[] centerPoint = new float[] {getWidth() * 0.5f, getHeight() * 0.5f};
+        inverse.mapPoints(centerPoint);
+        float normalizedCenterX = centerPoint[0] / drawableWidth;
+        float normalizedCenterY = centerPoint[1] / drawableHeight;
+        return new ZoomState(
+                currentScale,
+                clamp(normalizedCenterX, 0f, 1f),
+                clamp(normalizedCenterY, 0f, 1f)
+        );
+    }
+
+    private float clamp(float value, float min, float max) {
+        return Math.max(min, Math.min(value, max));
+    }
+
+    public interface OnZoomStateChangeListener {
+        void onZoomStateChanged(ZoomImageView source, ZoomState state);
+    }
+
+    public static class ZoomState {
+        private final float scale;
+        private final float normalizedCenterX;
+        private final float normalizedCenterY;
+
+        private ZoomState(float scale, float normalizedCenterX, float normalizedCenterY) {
+            this.scale = scale;
+            this.normalizedCenterX = normalizedCenterX;
+            this.normalizedCenterY = normalizedCenterY;
         }
     }
 }

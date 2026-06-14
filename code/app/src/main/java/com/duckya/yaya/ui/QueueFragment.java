@@ -64,6 +64,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     private Button completedClearButton;
     private Button completedRecycleAllButton;
     private View completedEntry;
+    private boolean syncingPreviewZoom;
     private final QueueManager queueManager = QueueManager.getInstance();
     private final MediaTrashManager trashManager = new MediaTrashManager();
     private PendingRecycleRequest pendingRecycleRequest;
@@ -137,6 +138,10 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             ((SimpleItemAnimator) completedRecyclerView.getItemAnimator()).setSupportsChangeAnimations(false);
         }
         completedRecyclerView.setAdapter(completedAdapter);
+        previewOriginalImage.setOnZoomStateChangeListener((source, state) ->
+                syncPreviewZoom(previewCompressedImage, state));
+        previewCompressedImage.setOnZoomStateChangeListener((source, state) ->
+                syncPreviewZoom(previewOriginalImage, state));
         clearButton.setOnClickListener(v -> queueManager.clear());
         startButton.setOnClickListener(v -> queueManager.toggleRunning());
         completedEntry.setOnClickListener(v -> showCompletedPage());
@@ -182,6 +187,12 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         completedEmptyText = null;
         previewOriginalInfoText = null;
         previewCompressedInfoText = null;
+        if (previewOriginalImage != null) {
+            previewOriginalImage.setOnZoomStateChangeListener(null);
+        }
+        if (previewCompressedImage != null) {
+            previewCompressedImage.setOnZoomStateChangeListener(null);
+        }
         previewOriginalImage = null;
         previewCompressedImage = null;
         previewRecycleOriginalButton = null;
@@ -406,6 +417,19 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         completedPage.setVisibility(View.GONE);
         mainPage.setVisibility(View.VISIBLE);
         previewTask = null;
+    }
+
+    private void syncPreviewZoom(ZoomImageView target, ZoomImageView.ZoomState state) {
+        if (syncingPreviewZoom || target == null) {
+            return;
+        }
+        syncingPreviewZoom = true;
+        try {
+            // 原图和压缩图尺寸可能不同，具体位置换算交给 ZoomImageView 统一处理。
+            target.applyZoomState(state);
+        } finally {
+            syncingPreviewZoom = false;
+        }
     }
 
     private void showPreviewPage(QueueTask task) {
