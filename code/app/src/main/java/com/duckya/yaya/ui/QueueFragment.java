@@ -441,15 +441,15 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         previewTask = task;
         Uri originalUri = task.getMedia().getUri();
         Uri compressedUri = task.getCompressedAssetUri();
+        mainPage.setVisibility(View.GONE);
+        completedPage.setVisibility(View.GONE);
+        previewPage.setVisibility(View.VISIBLE);
         previewOriginalImage.setImageURI(originalUri);
         // 部分异常任务可能没有压缩结果，进入详情页时要避免复用上一张压缩图。
         previewCompressedImage.setImageURI(compressedUri);
         previewOriginalInfoText.setText(buildOriginalInfo(task));
         previewCompressedInfoText.setText(buildCompressedInfo(task));
         bindPreviewActions(task);
-        mainPage.setVisibility(View.GONE);
-        completedPage.setVisibility(View.GONE);
-        previewPage.setVisibility(View.VISIBLE);
     }
 
     private void bindPreviewActions(QueueTask task) {

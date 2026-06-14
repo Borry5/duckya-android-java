@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.graphics.Matrix;
 import android.graphics.PointF;
+import android.net.Uri;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -21,6 +22,7 @@ public class ZoomImageView extends AppCompatImageView {
     private ScaleGestureDetector scaleDetector;
     private float currentScale = MIN_SCALE;
     private boolean dragging;
+    private boolean resetWhenLaidOut;
     @Nullable
     private OnZoomStateChangeListener zoomStateChangeListener;
 
@@ -46,10 +48,15 @@ public class ZoomImageView extends AppCompatImageView {
     }
 
     public void resetZoom() {
+        if (!hasDrawableAndSize()) {
+            resetWhenLaidOut = true;
+            return;
+        }
         currentScale = MIN_SCALE;
         imageMatrixValue.reset();
         applyFitCenterMatrix();
         setImageMatrix(imageMatrixValue);
+        resetWhenLaidOut = false;
     }
 
     public void setOnZoomStateChangeListener(@Nullable OnZoomStateChangeListener listener) {
@@ -89,15 +96,34 @@ public class ZoomImageView extends AppCompatImageView {
     }
 
     @Override
-    public void setImageURI(@Nullable android.net.Uri uri) {
+    public void setImageURI(@Nullable Uri uri) {
         super.setImageURI(uri);
         resetZoom();
+        // URI 解码和布局时机可能晚于 setImageURI，下一帧再兜底校准一次矩阵。
+        post(this::resetZoom);
     }
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         resetZoom();
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        if (changed || resetWhenLaidOut) {
+            resetZoom();
+        }
+    }
+
+    private boolean hasDrawableAndSize() {
+        Drawable drawable = getDrawable();
+        return drawable != null
+                && drawable.getIntrinsicWidth() > 0
+                && drawable.getIntrinsicHeight() > 0
+                && getWidth() > 0
+                && getHeight() > 0;
     }
 
     private void applyFitCenterMatrix() {
