@@ -5,10 +5,12 @@ import android.app.PendingIntent;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -44,8 +46,14 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class QueueFragment extends Fragment implements QueueChangeListener {
+    private static final String TAG = "DuckyaPreview";
+    private static final int PREVIEW_MAX_LONG_SIDE = 3072;
+    private static final long PREVIEW_MAX_BITMAP_BYTES = 48L * 1024L * 1024L;
+
     private QueueTaskAdapter adapter;
     private QueueTaskAdapter completedAdapter;
     private View mainPage;
@@ -73,8 +81,10 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     private boolean syncingPreviewZoom;
     private final QueueManager queueManager = QueueManager.getInstance();
     private final MediaTrashManager trashManager = new MediaTrashManager();
+    private final ExecutorService previewImageExecutor = Executors.newFixedThreadPool(2);
     private PendingRecycleRequest pendingRecycleRequest;
     private QueueTask previewTask;
+    private int previewLoadGeneration;
 
     private final ActivityResultLauncher<IntentSenderRequest> trashRequestLauncher =
             registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
@@ -183,6 +193,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     public void onDestroyView() {
         super.onDestroyView();
         queueManager.removeListener(this);
+        previewLoadGeneration++;
         adapter = null;
         completedAdapter = null;
         mainPage = null;
@@ -214,6 +225,12 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         completedRecycleAllButton = null;
         completedEntry = null;
         previewTask = null;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        previewImageExecutor.shutdownNow();
     }
 
     @Override
@@ -450,16 +467,15 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             return;
         }
         previewTask = task;
+        int loadGeneration = ++previewLoadGeneration;
         Uri originalUri = resolvePreviewOriginalUri(task);
         Uri compressedUri = task.getCompressedAssetUri();
         mainPage.setVisibility(View.GONE);
         completedPage.setVisibility(View.GONE);
         previewPage.setVisibility(View.VISIBLE);
-        previewOriginalImage.setImageURI(originalUri);
+        loadPreviewImage(loadGeneration, previewOriginalImage, previewOriginalErrorText, originalUri, "original");
         // 部分异常任务可能没有压缩结果，进入详情页时要避免复用上一张压缩图。
-        previewCompressedImage.setImageURI(compressedUri);
-        markPreviewImageFailureIfNeeded(previewOriginalImage, previewOriginalErrorText, originalUri);
-        markPreviewImageFailureIfNeeded(previewCompressedImage, previewCompressedErrorText, compressedUri);
+        loadPreviewImage(loadGeneration, previewCompressedImage, previewCompressedErrorText, compressedUri, "compressed");
         previewOriginalInfoText.setText(buildOriginalInfo(task));
         previewCompressedInfoText.setText(buildCompressedInfo(task));
         bindPreviewActions(task);
@@ -501,19 +517,91 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return task.getMedia().getUri();
     }
 
-    private void markPreviewImageFailureIfNeeded(ZoomImageView imageView, TextView errorText, @Nullable Uri uri) {
+    private void loadPreviewImage(
+            int generation,
+            ZoomImageView imageView,
+            TextView errorText,
+            @Nullable Uri uri,
+            String label
+    ) {
+        imageView.setImageBitmap(null);
         errorText.setVisibility(View.GONE);
         if (uri == null) {
             errorText.setVisibility(View.VISIBLE);
             return;
         }
-        imageView.postDelayed(() -> {
-            if (imageView.getDrawable() == null) {
-                errorText.setVisibility(View.VISIBLE);
-            } else {
-                errorText.setVisibility(View.GONE);
+        ContentResolver resolver = requireContext().getApplicationContext().getContentResolver();
+        previewImageExecutor.execute(() -> {
+            Bitmap bitmap = null;
+            try {
+                bitmap = decodeSampledPreviewBitmap(resolver, uri, label);
+            } catch (RuntimeException e) {
+                Log.w(TAG, "preview decode failed, label=" + label + ", uri=" + uri, e);
             }
-        }, 300L);
+            Bitmap decodedBitmap = bitmap;
+            imageView.post(() -> {
+                if (generation != previewLoadGeneration || imageView == null) {
+                    if (decodedBitmap != null) {
+                        decodedBitmap.recycle();
+                    }
+                    return;
+                }
+                if (decodedBitmap == null) {
+                    errorText.setVisibility(View.VISIBLE);
+                    return;
+                }
+                imageView.setImageBitmap(decodedBitmap);
+                errorText.setVisibility(View.GONE);
+            });
+        });
+    }
+
+    @Nullable
+    private Bitmap decodeSampledPreviewBitmap(ContentResolver resolver, Uri uri, String label) {
+        BitmapFactory.Options boundsOptions = new BitmapFactory.Options();
+        boundsOptions.inJustDecodeBounds = true;
+        try (InputStream boundsStream = resolver.openInputStream(uri)) {
+            if (boundsStream == null) {
+                Log.w(TAG, "preview bounds stream is null, label=" + label + ", uri=" + uri);
+                return null;
+            }
+            BitmapFactory.decodeStream(boundsStream, null, boundsOptions);
+        } catch (Exception e) {
+            Log.w(TAG, "preview bounds failed, label=" + label + ", uri=" + uri, e);
+            return null;
+        }
+        if (boundsOptions.outWidth <= 0 || boundsOptions.outHeight <= 0) {
+            Log.w(TAG, "preview invalid bounds, label=" + label + ", uri=" + uri);
+            return null;
+        }
+
+        BitmapFactory.Options decodeOptions = new BitmapFactory.Options();
+        decodeOptions.inSampleSize = calculatePreviewSampleSize(boundsOptions.outWidth, boundsOptions.outHeight);
+        decodeOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        try (InputStream decodeStream = resolver.openInputStream(uri)) {
+            if (decodeStream == null) {
+                Log.w(TAG, "preview decode stream is null, label=" + label + ", uri=" + uri);
+                return null;
+            }
+            Bitmap bitmap = BitmapFactory.decodeStream(decodeStream, null, decodeOptions);
+            Log.d(TAG, "preview decoded label=" + label
+                    + ", source=" + boundsOptions.outWidth + "x" + boundsOptions.outHeight
+                    + ", sample=" + decodeOptions.inSampleSize
+                    + ", result=" + (bitmap == null ? "null" : bitmap.getWidth() + "x" + bitmap.getHeight()));
+            return bitmap;
+        } catch (Exception e) {
+            Log.w(TAG, "preview decode failed, label=" + label + ", uri=" + uri, e);
+            return null;
+        }
+    }
+
+    private int calculatePreviewSampleSize(int width, int height) {
+        int sampleSize = 1;
+        while (Math.max(width / sampleSize, height / sampleSize) > PREVIEW_MAX_LONG_SIDE
+                || ((long) (width / sampleSize) * (long) (height / sampleSize) * 4L) > PREVIEW_MAX_BITMAP_BYTES) {
+            sampleSize *= 2;
+        }
+        return sampleSize;
     }
 
     @Nullable

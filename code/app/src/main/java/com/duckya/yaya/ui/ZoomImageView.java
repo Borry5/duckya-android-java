@@ -1,6 +1,7 @@
 package com.duckya.yaya.ui;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.graphics.Matrix;
 import android.graphics.PointF;
@@ -100,6 +101,14 @@ public class ZoomImageView extends AppCompatImageView {
         super.setImageURI(uri);
         resetZoom();
         // URI 解码和布局时机可能晚于 setImageURI，下一帧再兜底校准一次矩阵。
+        post(this::resetZoom);
+    }
+
+    @Override
+    public void setImageBitmap(Bitmap bm) {
+        super.setImageBitmap(bm);
+        resetZoom();
+        // 后台采样解码回到主线程后，等待 Drawable 完成绑定再校准矩阵。
         post(this::resetZoom);
     }
 
