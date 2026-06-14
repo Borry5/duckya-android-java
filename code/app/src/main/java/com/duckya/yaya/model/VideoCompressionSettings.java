@@ -47,14 +47,15 @@ public class VideoCompressionSettings {
     ) {
         this.preset = preset;
         this.resolutionOption = resolutionOption;
-        this.codecOption = codecOption;
+        // 视频编码固定优先使用 H.265；设备不支持时由 Worker 自动回退 H.264。
+        this.codecOption = VideoCodecOption.H265;
         this.targetBitrateMbps = Math.max(1f, Math.min(targetBitrateMbps, 20f));
         this.autoBitrate = autoBitrate;
         // 当前安卓版本不提供音频调节，始终保留原始音频，旧缓存中的静音/降码率设置也会被矫正。
         this.audioMode = VideoAudioMode.KEEP;
         this.frameRateOption = frameRateOption == null ? VideoFrameRateOption.ORIGINAL : frameRateOption;
         this.limitToOneGb = limitToOneGb;
-        this.fallbackToH264 = fallbackToH264;
+        this.fallbackToH264 = true;
     }
 
     public static VideoCompressionSettings balanced() {

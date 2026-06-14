@@ -142,6 +142,7 @@
     <string name="video_codec_h265">H.265</string>
     <string name="video_codec_h264">H.264</string>
     <string name="video_codec_helper">推荐 H.265，体积通常更小；如设备不支持，会按设置回退到 H.264。</string>
+    <string name="video_codec_fixed_hint">默认使用 H.265 编码，失败时会自动尝试回退 H.264；音频保持原样。</string>
     <string name="video_framerate_title">帧率</string>
     <string name="video_framerate_original">保持原始帧率</string>
     <string name="video_framerate_30">30 FPS</string>

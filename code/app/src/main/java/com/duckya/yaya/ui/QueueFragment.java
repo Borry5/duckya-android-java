@@ -835,10 +835,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_video_compression, null, false);
         RadioGroup presetGroup = dialogView.findViewById(R.id.video_preset_group);
         RadioGroup resolutionGroup = dialogView.findViewById(R.id.video_resolution_group);
-        RadioGroup codecGroup = dialogView.findViewById(R.id.video_codec_group);
         RadioGroup frameRateGroup = dialogView.findViewById(R.id.video_framerate_group);
         RadioGroup bitrateModeGroup = dialogView.findViewById(R.id.video_bitrate_mode_group);
-        CheckBox fallbackH264Check = dialogView.findViewById(R.id.video_fallback_h264_check);
         TextView bitrateValueText = dialogView.findViewById(R.id.video_bitrate_value_text);
         Slider bitrateSlider = dialogView.findViewById(R.id.video_bitrate_slider);
         Button closeButton = dialogView.findViewById(R.id.video_settings_close_button);
@@ -848,10 +846,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 task.getVideoSettings(),
                 presetGroup,
                 resolutionGroup,
-                codecGroup,
                 frameRateGroup,
                 bitrateModeGroup,
-                fallbackH264Check,
                 bitrateValueText,
                 bitrateSlider
         );
@@ -860,28 +856,37 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 .setView(dialogView)
                 .create();
 
-        presetGroup.setOnCheckedChangeListener((group, checkedId) -> applyVideoPresetDefaults(
-                videoPresetFromId(checkedId),
-                resolutionGroup,
-                codecGroup,
-                frameRateGroup,
-                bitrateModeGroup,
-                fallbackH264Check,
-                bitrateValueText,
-                bitrateSlider
-        ));
-        bitrateModeGroup.setOnCheckedChangeListener((group, checkedId) ->
-                bindBitrateModeUi(checkedId == R.id.video_bitrate_mode_one_gb, bitrateValueText, bitrateSlider));
-        bitrateSlider.addOnChangeListener((slider, value, fromUser) ->
-                bitrateValueText.setText(getString(R.string.video_bitrate_value, value)));
+        presetGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            applyVideoPresetDefaults(
+                    videoPresetFromId(checkedId),
+                    resolutionGroup,
+                    frameRateGroup,
+                    bitrateModeGroup,
+                    bitrateValueText,
+                    bitrateSlider
+            );
+            saveVideoSettingsFromDialog(task, presetGroup, resolutionGroup, frameRateGroup, bitrateModeGroup, bitrateSlider);
+        });
+        resolutionGroup.setOnCheckedChangeListener((group, checkedId) ->
+                saveVideoSettingsFromDialog(task, presetGroup, resolutionGroup, frameRateGroup, bitrateModeGroup, bitrateSlider));
+        frameRateGroup.setOnCheckedChangeListener((group, checkedId) ->
+                saveVideoSettingsFromDialog(task, presetGroup, resolutionGroup, frameRateGroup, bitrateModeGroup, bitrateSlider));
+        bitrateModeGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            bindBitrateModeUi(checkedId == R.id.video_bitrate_mode_one_gb, bitrateValueText, bitrateSlider);
+            saveVideoSettingsFromDialog(task, presetGroup, resolutionGroup, frameRateGroup, bitrateModeGroup, bitrateSlider);
+        });
+        bitrateSlider.addOnChangeListener((slider, value, fromUser) -> {
+            bitrateValueText.setText(getString(R.string.video_bitrate_value, value));
+            if (fromUser) {
+                saveVideoSettingsFromDialog(task, presetGroup, resolutionGroup, frameRateGroup, bitrateModeGroup, bitrateSlider);
+            }
+        });
         applyButton.setOnClickListener(v -> {
             VideoCompressionSettings settings = collectVideoSettings(
                     presetGroup,
                     resolutionGroup,
-                    codecGroup,
                     frameRateGroup,
                     bitrateModeGroup,
-                    fallbackH264Check,
                     bitrateSlider
             );
             queueManager.updateVideoTaskSettings(task.getId(), settings);
@@ -895,21 +900,17 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             VideoCompressionSettings settings,
             RadioGroup presetGroup,
             RadioGroup resolutionGroup,
-            RadioGroup codecGroup,
             RadioGroup frameRateGroup,
             RadioGroup bitrateModeGroup,
-            CheckBox fallbackH264Check,
             TextView bitrateValueText,
             Slider bitrateSlider
     ) {
         presetGroup.check(idForVideoPreset(settings.getPreset()));
         resolutionGroup.check(idForVideoResolution(settings.getResolutionOption()));
-        codecGroup.check(idForVideoCodec(settings.getCodecOption()));
         frameRateGroup.check(idForVideoFrameRate(settings.getFrameRateOption()));
         bitrateModeGroup.check(settings.isLimitToOneGb()
                 ? R.id.video_bitrate_mode_one_gb
                 : R.id.video_bitrate_mode_preset);
-        fallbackH264Check.setChecked(settings.isFallbackToH264());
         bitrateSlider.setValue(settings.getTargetBitrateMbps());
         bindBitrateModeUi(settings.isLimitToOneGb(), bitrateValueText, bitrateSlider);
         bitrateValueText.setText(getString(R.string.video_bitrate_value, settings.getTargetBitrateMbps()));
@@ -918,32 +919,46 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     private VideoCompressionSettings collectVideoSettings(
             RadioGroup presetGroup,
             RadioGroup resolutionGroup,
-            RadioGroup codecGroup,
             RadioGroup frameRateGroup,
             RadioGroup bitrateModeGroup,
-            CheckBox fallbackH264Check,
             Slider bitrateSlider
     ) {
         return new VideoCompressionSettings(
                 videoPresetFromId(presetGroup.getCheckedRadioButtonId()),
                 videoResolutionFromId(resolutionGroup.getCheckedRadioButtonId()),
-                videoCodecFromId(codecGroup.getCheckedRadioButtonId()),
+                VideoCodecOption.H265,
                 bitrateSlider.getValue(),
                 true,
                 com.duckya.yaya.model.VideoAudioMode.KEEP,
                 videoFrameRateFromId(frameRateGroup.getCheckedRadioButtonId()),
                 bitrateModeGroup.getCheckedRadioButtonId() == R.id.video_bitrate_mode_one_gb,
-                fallbackH264Check.isChecked()
+                true
         );
+    }
+
+    private void saveVideoSettingsFromDialog(
+            QueueTask task,
+            RadioGroup presetGroup,
+            RadioGroup resolutionGroup,
+            RadioGroup frameRateGroup,
+            RadioGroup bitrateModeGroup,
+            Slider bitrateSlider
+    ) {
+        VideoCompressionSettings settings = collectVideoSettings(
+                presetGroup,
+                resolutionGroup,
+                frameRateGroup,
+                bitrateModeGroup,
+                bitrateSlider
+        );
+        queueManager.updateVideoTaskSettings(task.getId(), settings);
     }
 
     private void applyVideoPresetDefaults(
             VideoCompressionPreset preset,
             RadioGroup resolutionGroup,
-            RadioGroup codecGroup,
             RadioGroup frameRateGroup,
             RadioGroup bitrateModeGroup,
-            CheckBox fallbackH264Check,
             TextView bitrateValueText,
             Slider bitrateSlider
     ) {
@@ -956,10 +971,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             presetSettings = VideoCompressionSettings.balanced();
         }
         resolutionGroup.check(idForVideoResolution(presetSettings.getResolutionOption()));
-        codecGroup.check(idForVideoCodec(presetSettings.getCodecOption()));
         frameRateGroup.check(idForVideoFrameRate(presetSettings.getFrameRateOption()));
         bitrateModeGroup.check(R.id.video_bitrate_mode_preset);
-        fallbackH264Check.setChecked(presetSettings.isFallbackToH264());
         bitrateSlider.setValue(presetSettings.getTargetBitrateMbps());
         bindBitrateModeUi(false, bitrateValueText, bitrateSlider);
         bitrateValueText.setText(getString(R.string.video_bitrate_value, presetSettings.getTargetBitrateMbps()));
@@ -1030,26 +1043,6 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             return VideoFrameRateOption.FPS30;
         }
         return VideoFrameRateOption.ORIGINAL;
-    }
-
-    private int idForVideoCodec(VideoCodecOption option) {
-        if (option == VideoCodecOption.H265) {
-            return R.id.video_codec_h265;
-        }
-        if (option == VideoCodecOption.H264) {
-            return R.id.video_codec_h264;
-        }
-        return R.id.video_codec_auto;
-    }
-
-    private VideoCodecOption videoCodecFromId(int id) {
-        if (id == R.id.video_codec_h265) {
-            return VideoCodecOption.H265;
-        }
-        if (id == R.id.video_codec_h264) {
-            return VideoCodecOption.H264;
-        }
-        return VideoCodecOption.AUTO;
     }
 
     // 用卡片边框和单选按钮同步展示当前选中的压缩档位。
