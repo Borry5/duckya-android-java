@@ -14,6 +14,7 @@ public class QueueTask {
     private long estimatedOutputBytes;
     private long actualOutputBytes;
     private String failureReason;
+    private Uri originalAssetUri;
     private Uri compressedAssetUri;
     private boolean originalRecycled;
     private boolean outputRecycled;
@@ -104,6 +105,15 @@ public class QueueTask {
         this.actualOutputBytes = actualOutputBytes;
     }
 
+    public Uri getOriginalAssetUri() {
+        return originalAssetUri;
+    }
+
+    public void setOriginalAssetUri(Uri originalAssetUri) {
+        this.originalAssetUri = originalAssetUri;
+        this.originalRecycled = false;
+    }
+
     public Uri getCompressedAssetUri() {
         return compressedAssetUri;
     }
@@ -144,6 +154,7 @@ public class QueueTask {
             float progress,
             long actualOutputBytes,
             String failureReason,
+            Uri originalAssetUri,
             Uri compressedAssetUri,
             boolean originalRecycled,
             boolean outputRecycled
@@ -154,6 +165,7 @@ public class QueueTask {
         this.progress = status == QueueStatus.RUNNING ? 0f : Math.max(0f, Math.min(progress, 1f));
         this.actualOutputBytes = actualOutputBytes;
         this.failureReason = failureReason;
+        this.originalAssetUri = originalAssetUri;
         this.compressedAssetUri = compressedAssetUri;
         this.originalRecycled = originalRecycled;
         this.outputRecycled = outputRecycled;

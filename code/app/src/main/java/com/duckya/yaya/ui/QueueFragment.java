@@ -439,7 +439,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             return;
         }
         previewTask = task;
-        Uri originalUri = task.getMedia().getUri();
+        Uri originalUri = resolvePreviewOriginalUri(task);
         Uri compressedUri = task.getCompressedAssetUri();
         mainPage.setVisibility(View.GONE);
         completedPage.setVisibility(View.GONE);
@@ -473,6 +473,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         previewRecycleOriginalButton.setEnabled(!task.isOriginalRecycled());
         previewRecycleOutputButton.setEnabled(!task.isOutputRecycled() && task.getCompressedAssetUri() != null);
         previewRecompressButton.setEnabled(task.getAction() == QueueAction.COMPRESS && !task.isOriginalRecycled());
+    }
+
+    private Uri resolvePreviewOriginalUri(QueueTask task) {
+        // 优先展示“压缩对照”相册里的原始版本副本，避免原始相册 URI 因云端占位或权限时序而空白。
+        return task.getOriginalAssetUri() == null ? task.getMedia().getUri() : task.getOriginalAssetUri();
     }
 
     private boolean containsTask(List<QueueTask> tasks, String taskId) {

@@ -294,6 +294,7 @@ public class QueueManager {
                 return;
             }
             task.setActualOutputBytes(result.getOutputBytes());
+            task.setOriginalAssetUri(result.getOriginalUri());
             task.setCompressedAssetUri(result.getOutputUri());
             task.setProgress(1f);
             task.setStatus(QueueStatus.DONE);

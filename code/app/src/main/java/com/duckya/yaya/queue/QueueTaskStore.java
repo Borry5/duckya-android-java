@@ -82,6 +82,9 @@ public class QueueTaskStore {
             object.put("progress", task.getProgress());
             object.put("actualOutputBytes", task.getActualOutputBytes());
             object.put("failureReason", task.getFailureReason());
+            object.put("originalAssetUri", task.getOriginalAssetUri() == null
+                    ? JSONObject.NULL
+                    : task.getOriginalAssetUri().toString());
             object.put("compressedAssetUri", task.getCompressedAssetUri() == null
                     ? JSONObject.NULL
                     : task.getCompressedAssetUri().toString());
@@ -122,6 +125,7 @@ public class QueueTaskStore {
                 media,
                 QueueAction.valueOf(object.getString("action"))
         );
+        String originalUriText = object.optString("originalAssetUri", "");
         String compressedUriText = object.optString("compressedAssetUri", "");
         task.restoreState(
                 settingsFromJson(object.optJSONObject("settings")),
@@ -129,6 +133,7 @@ public class QueueTaskStore {
                 (float) object.optDouble("progress", 0.0),
                 object.optLong("actualOutputBytes", 0L),
                 object.optString("failureReason", null),
+                originalUriText.isEmpty() || "null".equals(originalUriText) ? null : Uri.parse(originalUriText),
                 compressedUriText.isEmpty() || "null".equals(compressedUriText) ? null : Uri.parse(compressedUriText),
                 object.optBoolean("originalRecycled", false),
                 object.optBoolean("outputRecycled", false)

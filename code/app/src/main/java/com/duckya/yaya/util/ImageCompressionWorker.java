@@ -88,15 +88,21 @@ public class ImageCompressionWorker {
 
     public static class Result {
         private final long outputBytes;
+        private final Uri originalUri;
         private final Uri outputUri;
 
-        public Result(long outputBytes, Uri outputUri) {
+        public Result(long outputBytes, Uri originalUri, Uri outputUri) {
             this.outputBytes = outputBytes;
+            this.originalUri = originalUri;
             this.outputUri = outputUri;
         }
 
         public long getOutputBytes() {
             return outputBytes;
+        }
+
+        public Uri getOriginalUri() {
+            return originalUri;
         }
 
         public Uri getOutputUri() {
@@ -159,7 +165,7 @@ public class ImageCompressionWorker {
 
             // 同一组对照文件只生成一次批次名，避免原图和压缩图被其他任务混淆。
             ComparisonFileNames fileNames = buildComparisonFileNames(item);
-            saveOriginalToComparisonAlbum(context, item, fileNames);
+            Uri originalUri = saveOriginalToComparisonAlbum(context, item, fileNames);
             if (!publishProgress(callback, 0.91f)) {
                 throw new InterruptedException("compression cancelled");
             }
@@ -168,7 +174,7 @@ public class ImageCompressionWorker {
             if (!publishProgress(callback, 1.0f)) {
                 throw new InterruptedException("compression cancelled");
             }
-            return new Result(tempFile.length(), savedUri);
+            return new Result(tempFile.length(), originalUri, savedUri);
         } finally {
             if (outputBitmap != null && !outputBitmap.isRecycled()) {
                 outputBitmap.recycle();
