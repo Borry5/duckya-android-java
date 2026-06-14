@@ -284,6 +284,20 @@ public class QueueManager {
         notifyListeners();
     }
 
+    public synchronized void rememberOriginalAssetUri(String taskId, android.net.Uri originalUri) {
+        if (originalUri == null) {
+            return;
+        }
+        for (QueueTask task : tasks) {
+            if (task.getId().equals(taskId) && task.getOriginalAssetUri() == null) {
+                // 老任务首次从压缩对照相册反查到原始版本后，写回缓存供后续稳定预览。
+                task.setOriginalAssetUri(originalUri);
+                persistTasks();
+                return;
+            }
+        }
+    }
+
     private void completeTask(String taskId, ImageCompressionWorker.Result result, int token) {
         synchronized (this) {
             if (!isActiveRun(token)) {

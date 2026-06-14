@@ -2,9 +2,13 @@ package com.duckya.yaya.ui;
 
 import android.app.Activity;
 import android.app.PendingIntent;
+import android.content.ContentResolver;
+import android.content.ContentUris;
+import android.database.Cursor;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -54,6 +58,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     private TextView completedEmptyText;
     private TextView previewOriginalInfoText;
     private TextView previewCompressedInfoText;
+    private TextView previewOriginalErrorText;
+    private TextView previewCompressedErrorText;
     private ZoomImageView previewOriginalImage;
     private ZoomImageView previewCompressedImage;
     private Button previewRecycleOriginalButton;
@@ -112,6 +118,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         completedEmptyText = view.findViewById(R.id.queue_completed_empty_text);
         previewOriginalInfoText = view.findViewById(R.id.queue_preview_original_info);
         previewCompressedInfoText = view.findViewById(R.id.queue_preview_compressed_info);
+        previewOriginalErrorText = view.findViewById(R.id.queue_preview_original_error);
+        previewCompressedErrorText = view.findViewById(R.id.queue_preview_compressed_error);
         previewOriginalImage = view.findViewById(R.id.queue_preview_original_image);
         previewCompressedImage = view.findViewById(R.id.queue_preview_compressed_image);
         previewRecycleOriginalButton = view.findViewById(R.id.queue_preview_recycle_original_button);
@@ -187,6 +195,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         completedEmptyText = null;
         previewOriginalInfoText = null;
         previewCompressedInfoText = null;
+        previewOriginalErrorText = null;
+        previewCompressedErrorText = null;
         if (previewOriginalImage != null) {
             previewOriginalImage.setOnZoomStateChangeListener(null);
         }
@@ -435,6 +445,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     private void showPreviewPage(QueueTask task) {
         if (mainPage == null || previewPage == null || completedPage == null || previewOriginalImage == null
                 || previewCompressedImage == null || previewOriginalInfoText == null || previewCompressedInfoText == null
+                || previewOriginalErrorText == null || previewCompressedErrorText == null
                 || previewRecycleOriginalButton == null || previewRecycleOutputButton == null || previewRecompressButton == null) {
             return;
         }
@@ -447,6 +458,8 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         previewOriginalImage.setImageURI(originalUri);
         // 部分异常任务可能没有压缩结果，进入详情页时要避免复用上一张压缩图。
         previewCompressedImage.setImageURI(compressedUri);
+        markPreviewImageFailureIfNeeded(previewOriginalImage, previewOriginalErrorText, originalUri);
+        markPreviewImageFailureIfNeeded(previewCompressedImage, previewCompressedErrorText, compressedUri);
         previewOriginalInfoText.setText(buildOriginalInfo(task));
         previewCompressedInfoText.setText(buildCompressedInfo(task));
         bindPreviewActions(task);
@@ -477,7 +490,89 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
 
     private Uri resolvePreviewOriginalUri(QueueTask task) {
         // 优先展示“压缩对照”相册里的原始版本副本，避免原始相册 URI 因云端占位或权限时序而空白。
-        return task.getOriginalAssetUri() == null ? task.getMedia().getUri() : task.getOriginalAssetUri();
+        if (task.getOriginalAssetUri() != null) {
+            return task.getOriginalAssetUri();
+        }
+        Uri recoveredUri = findComparisonOriginalUri(task);
+        if (recoveredUri != null) {
+            queueManager.rememberOriginalAssetUri(task.getId(), recoveredUri);
+            return recoveredUri;
+        }
+        return task.getMedia().getUri();
+    }
+
+    private void markPreviewImageFailureIfNeeded(ZoomImageView imageView, TextView errorText, @Nullable Uri uri) {
+        errorText.setVisibility(View.GONE);
+        if (uri == null) {
+            errorText.setVisibility(View.VISIBLE);
+            return;
+        }
+        imageView.postDelayed(() -> {
+            if (imageView.getDrawable() == null) {
+                errorText.setVisibility(View.VISIBLE);
+            } else {
+                errorText.setVisibility(View.GONE);
+            }
+        }, 300L);
+    }
+
+    @Nullable
+    private Uri findComparisonOriginalUri(QueueTask task) {
+        Uri compressedUri = task.getCompressedAssetUri();
+        if (compressedUri == null) {
+            return null;
+        }
+        String compressedName = queryDisplayName(compressedUri);
+        if (compressedName == null || !compressedName.endsWith("_压缩版本.jpg")) {
+            return null;
+        }
+        String batchPrefix = compressedName.substring(0, compressedName.length() - "_压缩版本.jpg".length());
+        ContentResolver resolver = requireContext().getContentResolver();
+        String[] projection = {
+                MediaStore.Images.Media._ID,
+                MediaStore.Images.Media.DISPLAY_NAME
+        };
+        String selection = MediaStore.Images.Media.DISPLAY_NAME + " LIKE ?";
+        String[] args = {batchPrefix + "_原始版本.%"};
+        try (Cursor cursor = resolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                selection,
+                args,
+                MediaStore.Images.Media.DATE_ADDED + " DESC"
+        )) {
+            if (cursor == null) {
+                return null;
+            }
+            int idIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
+            int nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME);
+            while (cursor.moveToNext()) {
+                String name = cursor.getString(nameIndex);
+                if (name != null && name.startsWith(batchPrefix + "_原始版本.")) {
+                    long id = cursor.getLong(idIndex);
+                    return ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // 系统相册查询失败时只放弃兜底查找，页面仍会显示明确的故障提示。
+        }
+        return null;
+    }
+
+    @Nullable
+    private String queryDisplayName(Uri uri) {
+        String[] projection = {MediaStore.Images.Media.DISPLAY_NAME};
+        try (Cursor cursor = requireContext().getContentResolver().query(uri, projection, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int nameIndex = cursor.getColumnIndex(MediaStore.Images.Media.DISPLAY_NAME);
+                if (nameIndex >= 0) {
+                    return cursor.getString(nameIndex);
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // 无法读取名称时回退到原始 URI 预览。
+        }
+        return null;
     }
 
     private boolean containsTask(List<QueueTask> tasks, String taskId) {

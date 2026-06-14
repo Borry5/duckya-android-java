@@ -69,6 +69,8 @@
     <string name="completed_compare_title">图像对比</string>
     <string name="completed_compare_original">原图</string>
     <string name="completed_compare_compressed">压缩图</string>
+    <string name="completed_compare_original_error">原图无法读取\n可能是原始相册文件暂时不可用</string>
+    <string name="completed_compare_compressed_error">压缩图无法读取\n请返回任务队列重新压缩</string>
     <string name="queue_title">任务队列</string>
     <string name="queue_stage_hint">当前阶段已接入图片压缩，开始队列后会顺序处理图片任务。</string>
     <string name="queue_empty_placeholder">当前无任务</string>
