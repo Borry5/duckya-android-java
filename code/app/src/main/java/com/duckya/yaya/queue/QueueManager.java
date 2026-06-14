@@ -75,6 +75,17 @@ public class QueueManager {
         return result;
     }
 
+    public synchronized List<QueueTask> getWaitingRecycleTasks() {
+        List<QueueTask> result = new ArrayList<>();
+        for (QueueTask task : tasks) {
+            if (task.getAction() == QueueAction.DELETE
+                    && task.getStatus() == QueueStatus.WAITING_RECYCLE_CONFIRM) {
+                result.add(task);
+            }
+        }
+        return result;
+    }
+
     public synchronized boolean isRunning() {
         return running;
     }
@@ -245,7 +256,7 @@ public class QueueManager {
     private void processTask(QueueTask task, int token) throws InterruptedException {
         try {
             if (task.getAction() == QueueAction.DELETE) {
-                failTask(task.getId(), "删除功能将在第 6 阶段接入", token);
+                waitForRecycleAuthorization(task.getId(), token);
                 return;
             }
             if (task.getMedia().getKind() == MediaKind.VIDEO) {
@@ -270,6 +281,32 @@ public class QueueManager {
         } catch (Exception e) {
             String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
             failTask(task.getId(), message, token);
+        }
+    }
+
+    private void waitForRecycleAuthorization(String taskId, int token) {
+        synchronized (this) {
+            if (!isActiveRun(token)) {
+                return;
+            }
+            QueueTask task = findTask(taskId);
+            if (task == null) {
+                return;
+            }
+            task.setStatus(QueueStatus.WAITING_RECYCLE_CONFIRM);
+            task.setProgress(0f);
+            task.setFailureReason(null);
+            // 系统回收授权必须由界面层发起；这里先暂停队列，授权完成后再继续处理后续任务。
+            for (QueueTask pendingTask : tasks) {
+                if (pendingTask.getAction() == QueueAction.DELETE
+                        && pendingTask.getStatus() == QueueStatus.PENDING) {
+                    pendingTask.setStatus(QueueStatus.WAITING_RECYCLE_CONFIRM);
+                    pendingTask.setProgress(0f);
+                    pendingTask.setFailureReason(null);
+                }
+            }
+            running = false;
+            notifyListeners();
         }
     }
 
@@ -304,6 +341,48 @@ public class QueueManager {
             }
         }
         notifyListeners();
+    }
+
+    public synchronized void completeRecycleTasks(Collection<String> taskIds) {
+        for (QueueTask task : tasks) {
+            if (taskIds.contains(task.getId())
+                    && task.getAction() == QueueAction.DELETE
+                    && task.getStatus() == QueueStatus.WAITING_RECYCLE_CONFIRM) {
+                task.setProgress(1f);
+                task.setStatus(QueueStatus.DONE);
+                task.setFailureReason(null);
+                task.setOriginalRecycled(true);
+            }
+        }
+        notifyListeners();
+    }
+
+    public synchronized void failRecycleTasks(Collection<String> taskIds, String reason) {
+        for (QueueTask task : tasks) {
+            if (taskIds.contains(task.getId())
+                    && task.getAction() == QueueAction.DELETE
+                    && task.getStatus() == QueueStatus.WAITING_RECYCLE_CONFIRM) {
+                task.setProgress(0f);
+                task.setStatus(QueueStatus.FAILED);
+                task.setFailureReason(reason);
+            }
+        }
+        notifyListeners();
+    }
+
+    public synchronized void startIfHasPendingTasks() {
+        if (running || appContext == null) {
+            return;
+        }
+        for (QueueTask task : tasks) {
+            if (task.getStatus() == QueueStatus.PENDING) {
+                running = true;
+                int token = ++runToken;
+                notifyListeners();
+                workerExecutor.execute(() -> processQueue(token));
+                return;
+            }
+        }
     }
 
     public synchronized void rememberOriginalAssetUri(String taskId, android.net.Uri originalUri) {
@@ -395,7 +474,8 @@ public class QueueManager {
 
     private void resetRunningTasksToPending() {
         for (QueueTask task : tasks) {
-            if (task.getStatus() == QueueStatus.RUNNING) {
+            if (task.getStatus() == QueueStatus.RUNNING
+                    || task.getStatus() == QueueStatus.WAITING_RECYCLE_CONFIRM) {
                 task.setStatus(QueueStatus.PENDING);
                 task.setProgress(0f);
             }

@@ -248,6 +248,9 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         if (status == QueueStatus.FAILED) {
             return R.string.queue_status_failed;
         }
+        if (status == QueueStatus.WAITING_RECYCLE_CONFIRM) {
+            return R.string.queue_status_waiting_recycle;
+        }
         return R.string.queue_status_pending;
     }
 

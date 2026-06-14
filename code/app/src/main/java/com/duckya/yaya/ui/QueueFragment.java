@@ -108,10 +108,19 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 PendingRecycleRequest request = pendingRecycleRequest;
                 pendingRecycleRequest = null;
                 if (result.getResultCode() != Activity.RESULT_OK) {
+                    if (request.deleteQueueRequest) {
+                        queueManager.failRecycleTasks(
+                                request.taskIds,
+                                getString(R.string.queue_recycle_cancelled)
+                        );
+                    }
                     Toast.makeText(requireContext(), R.string.queue_recycle_cancelled, Toast.LENGTH_SHORT).show();
                     return;
                 }
-                if (request.outputTarget) {
+                if (request.deleteQueueRequest) {
+                    queueManager.completeRecycleTasks(request.taskIds);
+                    queueManager.startIfHasPendingTasks();
+                } else if (request.outputTarget) {
                     queueManager.markOutputRecycled(request.taskIds);
                 } else {
                     queueManager.markOriginalRecycled(request.taskIds);
@@ -301,6 +310,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 && previewPage.getVisibility() == View.VISIBLE) {
             showMainPage();
         }
+        requestPendingQueueRecycleIfNeeded();
     }
 
     private QueueTaskAdapter.Listener createQueueListener() {
@@ -433,6 +443,59 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             pendingRecycleRequest = null;
             Toast.makeText(requireContext(), R.string.queue_recycle_pending, Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void requestPendingQueueRecycleIfNeeded() {
+        if (pendingRecycleRequest != null || !isAdded()) {
+            return;
+        }
+        List<QueueTask> waitingTasks = queueManager.getWaitingRecycleTasks();
+        if (waitingTasks.isEmpty()) {
+            return;
+        }
+        if (!trashManager.isTrashRequestSupported()) {
+            List<String> taskIds = collectTaskIds(waitingTasks);
+            queueManager.failRecycleTasks(taskIds, getString(R.string.queue_recycle_pending));
+            Toast.makeText(requireContext(), R.string.queue_recycle_pending, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        List<Uri> uris = new ArrayList<>();
+        List<String> taskIds = new ArrayList<>();
+        for (QueueTask task : waitingTasks) {
+            Uri targetUri = task.getMedia().getUri();
+            if (targetUri == null) {
+                continue;
+            }
+            uris.add(targetUri);
+            taskIds.add(task.getId());
+        }
+        if (uris.isEmpty()) {
+            queueManager.failRecycleTasks(collectTaskIds(waitingTasks), getString(R.string.queue_recycle_no_target));
+            Toast.makeText(requireContext(), R.string.queue_recycle_no_target, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        PendingIntent pendingIntent = trashManager.createTrashRequest(requireContext(), uris);
+        if (pendingIntent == null) {
+            queueManager.failRecycleTasks(taskIds, getString(R.string.queue_recycle_pending));
+            Toast.makeText(requireContext(), R.string.queue_recycle_pending, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        pendingRecycleRequest = PendingRecycleRequest.forDeleteQueue(taskIds);
+        try {
+            trashRequestLauncher.launch(new IntentSenderRequest.Builder(pendingIntent.getIntentSender()).build());
+        } catch (RuntimeException e) {
+            pendingRecycleRequest = null;
+            queueManager.failRecycleTasks(taskIds, getString(R.string.queue_recycle_pending));
+            Toast.makeText(requireContext(), R.string.queue_recycle_pending, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private List<String> collectTaskIds(List<QueueTask> tasks) {
+        List<String> taskIds = new ArrayList<>();
+        for (QueueTask task : tasks) {
+            taskIds.add(task.getId());
+        }
+        return taskIds;
     }
 
     // 清空已完成任务前增加一次确认，避免误触直接清空记录列表。
@@ -789,10 +852,22 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     private static class PendingRecycleRequest {
         private final List<String> taskIds;
         private final boolean outputTarget;
+        private final boolean deleteQueueRequest;
 
         private PendingRecycleRequest(List<String> taskIds, boolean outputTarget) {
             this.taskIds = taskIds;
             this.outputTarget = outputTarget;
+            this.deleteQueueRequest = false;
+        }
+
+        private PendingRecycleRequest(List<String> taskIds, boolean outputTarget, boolean deleteQueueRequest) {
+            this.taskIds = taskIds;
+            this.outputTarget = outputTarget;
+            this.deleteQueueRequest = deleteQueueRequest;
+        }
+
+        private static PendingRecycleRequest forDeleteQueue(List<String> taskIds) {
+            return new PendingRecycleRequest(taskIds, false, true);
         }
     }
 

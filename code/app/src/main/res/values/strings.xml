@@ -28,14 +28,14 @@
     <string name="scan_selection_done">完成</string>
     <string name="scan_selection_count">已选 %1$d 项</string>
     <string name="scan_selection_compress">压缩</string>
-    <string name="scan_selection_delete">删除</string>
+    <string name="scan_selection_delete">回收</string>
     <string name="scan_checkbox_select">选择 %1$s</string>
     <string name="scan_checkbox_deselect">取消选择 %1$s</string>
     <string name="scan_item_selected_state">已选中</string>
     <string name="scan_item_unselected_state">未选中</string>
     <string name="scan_cached_loaded">已加载上次扫描结果</string>
     <string name="scan_selected_added_compress">已添加 %1$d 项到压缩队列</string>
-    <string name="scan_selected_added_delete">已添加 %1$d 项到删除队列</string>
+    <string name="scan_selected_added_delete">已添加 %1$d 项到回收队列</string>
     <string name="filter_title">筛选</string>
     <string name="filter_resource_type">资源类型</string>
     <string name="filter_display_options">显示选项</string>
@@ -52,9 +52,9 @@
     <string name="preview_duration">时长：%1$s</string>
     <string name="preview_bitrate">码率：%1$s Mbps</string>
     <string name="preview_action_compress">压缩</string>
-    <string name="preview_action_delete">删除</string>
+    <string name="preview_action_delete">回收</string>
     <string name="preview_added_compress">已加入压缩队列</string>
-    <string name="preview_added_delete">已加入删除队列</string>
+    <string name="preview_added_delete">已加入回收队列</string>
     <string name="completed_preview_title">任务预览</string>
     <string name="completed_preview_original">原图</string>
     <string name="completed_preview_compressed">压缩后</string>
@@ -116,7 +116,7 @@
     <string name="queue_pending_count">待处理 %1$d 项</string>
     <string name="queue_total_saved">预计可节省 %1$s</string>
     <string name="queue_action_compress">压缩</string>
-    <string name="queue_action_delete">删除</string>
+    <string name="queue_action_delete">回收</string>
     <string name="queue_preset_light">视觉无损</string>
     <string name="queue_preset_light_subtitle">尽量保留原图细节，优先兼顾画质和观感。</string>
     <string name="queue_preset_strong">朋友圈画质</string>
@@ -170,9 +170,10 @@
     <string name="video_audio_keep_hint">音频默认保留原始轨道，本阶段不修改音频码率或静音。</string>
     <string name="video_settings_apply">应用设置</string>
     <string name="queue_output_estimate_hint">预估</string>
-    <string name="queue_delete_hint">删除任务将在第 6 阶段接入</string>
+    <string name="queue_delete_hint">将通过系统授权移入回收站</string>
     <string name="queue_status_pending">待处理</string>
     <string name="queue_status_running">处理中</string>
+    <string name="queue_status_waiting_recycle">等待回收授权</string>
     <string name="queue_status_done">已完成</string>
     <string name="queue_status_failed">失败</string>
     <string name="queue_cancel">取消</string>
@@ -180,5 +181,5 @@
     <string name="queue_est_saved">预计省 %1$s</string>
     <string name="queue_saved_done">已节省 %1$s</string>
     <string name="scan_menu_add_compress">添加到压缩队列</string>
-    <string name="scan_menu_add_delete">添加到删除队列</string>
+    <string name="scan_menu_add_delete">添加到回收队列</string>
 </resources>
