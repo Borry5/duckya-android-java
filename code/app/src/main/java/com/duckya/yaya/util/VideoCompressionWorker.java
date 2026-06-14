@@ -164,8 +164,12 @@ public class VideoCompressionWorker {
             if (effects != Effects.EMPTY) {
                 itemBuilder.setEffects(effects);
             }
-            if (settings.getFrameRateOption() == VideoFrameRateOption.FPS30) {
+            if (settings.getFrameRateOption() == VideoFrameRateOption.FPS60) {
+                itemBuilder.setFrameRate(60);
+            } else if (settings.getFrameRateOption() == VideoFrameRateOption.FPS30) {
                 itemBuilder.setFrameRate(30);
+            } else if (settings.getFrameRateOption() == VideoFrameRateOption.FPS24) {
+                itemBuilder.setFrameRate(24);
             }
             EditedMediaItem editedItem = itemBuilder.build();
             postToTransformerThread(transformerHandler, () ->
@@ -363,6 +367,10 @@ public class VideoCompressionWorker {
 
     private int targetHeight(VideoResolutionOption option) {
         switch (option) {
+            case P2160:
+                return 2160;
+            case P1440:
+                return 1440;
             case P1080:
                 return 1080;
             case P720:

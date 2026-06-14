@@ -836,6 +836,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     private void showVideoCompressionDialog(QueueTask task) {
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_video_compression, null, false);
         RadioGroup presetGroup = dialogView.findViewById(R.id.video_preset_group);
+        View advancedSection = dialogView.findViewById(R.id.video_custom_section);
         RadioGroup resolutionGroup = dialogView.findViewById(R.id.video_resolution_group);
         RadioGroup frameRateGroup = dialogView.findViewById(R.id.video_framerate_group);
         RadioGroup bitrateModeGroup = dialogView.findViewById(R.id.video_bitrate_mode_group);
@@ -849,6 +850,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 task,
                 task.getVideoSettings(),
                 presetGroup,
+                advancedSection,
                 resolutionGroup,
                 frameRateGroup,
                 bitrateModeGroup,
@@ -864,6 +866,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         presetGroup.setOnCheckedChangeListener((group, checkedId) -> {
             applyVideoPresetDefaults(
                     videoPresetFromId(checkedId),
+                    advancedSection,
                     resolutionGroup,
                     frameRateGroup,
                     bitrateModeGroup,
@@ -912,6 +915,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             QueueTask task,
             VideoCompressionSettings settings,
             RadioGroup presetGroup,
+            View advancedSection,
             RadioGroup resolutionGroup,
             RadioGroup frameRateGroup,
             RadioGroup bitrateModeGroup,
@@ -921,6 +925,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     ) {
         boolean oneGbAllowed = isOneGbLimitAllowed(task);
         presetGroup.check(idForVideoPreset(settings.getPreset()));
+        bindCustomSectionVisibility(advancedSection, settings.getPreset() == VideoCompressionPreset.CUSTOM);
         resolutionGroup.check(idForVideoResolution(settings.getResolutionOption()));
         frameRateGroup.check(idForVideoFrameRate(settings.getFrameRateOption()));
         oneGbOption.setEnabled(oneGbAllowed);
@@ -980,6 +985,7 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
 
     private void applyVideoPresetDefaults(
             VideoCompressionPreset preset,
+            View advancedSection,
             RadioGroup resolutionGroup,
             RadioGroup frameRateGroup,
             RadioGroup bitrateModeGroup,
@@ -991,9 +997,13 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             presetSettings = VideoCompressionSettings.highQuality();
         } else if (preset == VideoCompressionPreset.SHARE) {
             presetSettings = VideoCompressionSettings.share();
+        } else if (preset == VideoCompressionPreset.CUSTOM) {
+            bindCustomSectionVisibility(advancedSection, true);
+            return;
         } else {
             presetSettings = VideoCompressionSettings.balanced();
         }
+        bindCustomSectionVisibility(advancedSection, false);
         resolutionGroup.check(idForVideoResolution(presetSettings.getResolutionOption()));
         frameRateGroup.check(idForVideoFrameRate(presetSettings.getFrameRateOption()));
         bitrateModeGroup.check(R.id.video_bitrate_mode_preset);
@@ -1009,12 +1019,19 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         bitrateSlider.setAlpha(limitToOneGb ? 0.55f : 1f);
     }
 
+    private void bindCustomSectionVisibility(View advancedSection, boolean visible) {
+        advancedSection.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
     private int idForVideoPreset(VideoCompressionPreset preset) {
         if (preset == VideoCompressionPreset.HIGH_QUALITY) {
             return R.id.video_preset_high_quality;
         }
         if (preset == VideoCompressionPreset.SHARE) {
             return R.id.video_preset_share;
+        }
+        if (preset == VideoCompressionPreset.CUSTOM) {
+            return R.id.video_preset_custom;
         }
         return R.id.video_preset_balanced;
     }
@@ -1026,12 +1043,21 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         if (id == R.id.video_preset_share) {
             return VideoCompressionPreset.SHARE;
         }
+        if (id == R.id.video_preset_custom) {
+            return VideoCompressionPreset.CUSTOM;
+        }
         return VideoCompressionPreset.BALANCED;
     }
 
     private int idForVideoResolution(VideoResolutionOption option) {
         if (option == VideoResolutionOption.ORIGINAL) {
             return R.id.video_resolution_original;
+        }
+        if (option == VideoResolutionOption.P2160) {
+            return R.id.video_resolution_2160;
+        }
+        if (option == VideoResolutionOption.P1440) {
+            return R.id.video_resolution_1440;
         }
         if (option == VideoResolutionOption.P720) {
             return R.id.video_resolution_720;
@@ -1046,6 +1072,12 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         if (id == R.id.video_resolution_original) {
             return VideoResolutionOption.ORIGINAL;
         }
+        if (id == R.id.video_resolution_2160) {
+            return VideoResolutionOption.P2160;
+        }
+        if (id == R.id.video_resolution_1440) {
+            return VideoResolutionOption.P1440;
+        }
         if (id == R.id.video_resolution_720) {
             return VideoResolutionOption.P720;
         }
@@ -1056,6 +1088,12 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     }
 
     private int idForVideoFrameRate(VideoFrameRateOption option) {
+        if (option == VideoFrameRateOption.FPS60) {
+            return R.id.video_framerate_60;
+        }
+        if (option == VideoFrameRateOption.FPS24) {
+            return R.id.video_framerate_24;
+        }
         if (option == VideoFrameRateOption.FPS30) {
             return R.id.video_framerate_30;
         }
@@ -1063,6 +1101,12 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     }
 
     private VideoFrameRateOption videoFrameRateFromId(int id) {
+        if (id == R.id.video_framerate_60) {
+            return VideoFrameRateOption.FPS60;
+        }
+        if (id == R.id.video_framerate_24) {
+            return VideoFrameRateOption.FPS24;
+        }
         if (id == R.id.video_framerate_30) {
             return VideoFrameRateOption.FPS30;
         }

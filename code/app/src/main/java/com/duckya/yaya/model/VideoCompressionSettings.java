@@ -66,7 +66,7 @@ public class VideoCompressionSettings {
                 3.5f,
                 true,
                 VideoAudioMode.KEEP,
-                VideoFrameRateOption.ORIGINAL,
+                VideoFrameRateOption.FPS60,
                 false,
                 true
         );
@@ -77,7 +77,7 @@ public class VideoCompressionSettings {
                 VideoCompressionPreset.HIGH_QUALITY,
                 VideoResolutionOption.ORIGINAL,
                 VideoCodecOption.H265,
-                9f,
+                6f,
                 true,
                 VideoAudioMode.KEEP,
                 VideoFrameRateOption.ORIGINAL,
@@ -95,6 +95,20 @@ public class VideoCompressionSettings {
                 true,
                 VideoAudioMode.KEEP,
                 VideoFrameRateOption.FPS30,
+                false,
+                true
+        );
+    }
+
+    public static VideoCompressionSettings custom() {
+        return new VideoCompressionSettings(
+                VideoCompressionPreset.CUSTOM,
+                VideoResolutionOption.P1080,
+                VideoCodecOption.H265,
+                3.5f,
+                true,
+                VideoAudioMode.KEEP,
+                VideoFrameRateOption.FPS60,
                 false,
                 true
         );

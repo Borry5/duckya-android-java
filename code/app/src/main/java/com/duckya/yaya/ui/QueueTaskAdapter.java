@@ -225,6 +225,8 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
                     return view.getContext().getString(R.string.video_preset_high_quality);
                 case SHARE:
                     return view.getContext().getString(R.string.video_preset_share);
+                case CUSTOM:
+                    return view.getContext().getString(R.string.video_preset_custom);
                 case BALANCED:
                 default:
                     return view.getContext().getString(R.string.video_preset_balanced);
