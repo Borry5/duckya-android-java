@@ -25,7 +25,8 @@ public class VideoCompressionSettings {
         this.codecOption = codecOption;
         this.targetBitrateMbps = Math.max(1f, Math.min(targetBitrateMbps, 20f));
         this.autoBitrate = autoBitrate;
-        this.audioMode = audioMode;
+        // 当前安卓版本不提供音频调节，始终保留原始音频，旧缓存中的静音/降码率设置也会被矫正。
+        this.audioMode = VideoAudioMode.KEEP;
         this.keepFrameRate = keepFrameRate;
         this.fallbackToH264 = fallbackToH264;
     }
@@ -34,7 +35,7 @@ public class VideoCompressionSettings {
         return new VideoCompressionSettings(
                 VideoCompressionPreset.BALANCED,
                 VideoResolutionOption.P1080,
-                VideoCodecOption.AUTO,
+                VideoCodecOption.H265,
                 6f,
                 true,
                 VideoAudioMode.KEEP,
@@ -46,9 +47,9 @@ public class VideoCompressionSettings {
     public static VideoCompressionSettings highQuality() {
         return new VideoCompressionSettings(
                 VideoCompressionPreset.HIGH_QUALITY,
-                VideoResolutionOption.P1080,
-                VideoCodecOption.AUTO,
-                10f,
+                VideoResolutionOption.ORIGINAL,
+                VideoCodecOption.H265,
+                12f,
                 true,
                 VideoAudioMode.KEEP,
                 true,
@@ -60,10 +61,10 @@ public class VideoCompressionSettings {
         return new VideoCompressionSettings(
                 VideoCompressionPreset.SHARE,
                 VideoResolutionOption.P720,
-                VideoCodecOption.H264,
-                3f,
+                VideoCodecOption.H265,
+                2.5f,
                 true,
-                VideoAudioMode.REDUCE,
+                VideoAudioMode.KEEP,
                 false,
                 true
         );

@@ -21,7 +21,6 @@ import androidx.media3.transformer.ProgressHolder;
 import androidx.media3.transformer.Transformer;
 
 import com.duckya.yaya.model.MediaItemInfo;
-import com.duckya.yaya.model.VideoAudioMode;
 import com.duckya.yaya.model.VideoCodecOption;
 import com.duckya.yaya.model.VideoCompressionSettings;
 import com.duckya.yaya.model.VideoResolutionOption;
@@ -147,8 +146,9 @@ public class VideoCompressionWorker {
                 .build();
 
         try {
+            // 视频压缩只处理画面参数，音频轨道保持原样交给 Media3 透传/复用。
             EditedMediaItem.Builder itemBuilder = new EditedMediaItem.Builder(MediaItem.fromUri(item.getUri()))
-                    .setRemoveAudio(settings.getAudioMode() == VideoAudioMode.MUTE);
+                    .setRemoveAudio(false);
             Effects effects = buildEffects(item, settings);
             if (effects != Effects.EMPTY) {
                 itemBuilder.setEffects(effects);

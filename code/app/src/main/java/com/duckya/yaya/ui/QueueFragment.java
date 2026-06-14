@@ -40,7 +40,6 @@ import com.duckya.yaya.model.CompressionPreset;
 import com.duckya.yaya.model.MediaKind;
 import com.duckya.yaya.model.QueueAction;
 import com.duckya.yaya.model.QueueTask;
-import com.duckya.yaya.model.VideoAudioMode;
 import com.duckya.yaya.model.VideoCodecOption;
 import com.duckya.yaya.model.VideoCompressionPreset;
 import com.duckya.yaya.model.VideoCompressionSettings;
@@ -836,7 +835,6 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         RadioGroup presetGroup = dialogView.findViewById(R.id.video_preset_group);
         RadioGroup resolutionGroup = dialogView.findViewById(R.id.video_resolution_group);
         RadioGroup codecGroup = dialogView.findViewById(R.id.video_codec_group);
-        RadioGroup audioGroup = dialogView.findViewById(R.id.video_audio_group);
         CheckBox autoBitrateCheck = dialogView.findViewById(R.id.video_auto_bitrate_check);
         CheckBox keepFrameRateCheck = dialogView.findViewById(R.id.video_keep_framerate_check);
         CheckBox fallbackH264Check = dialogView.findViewById(R.id.video_fallback_h264_check);
@@ -850,7 +848,6 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 presetGroup,
                 resolutionGroup,
                 codecGroup,
-                audioGroup,
                 autoBitrateCheck,
                 keepFrameRateCheck,
                 fallbackH264Check,
@@ -862,6 +859,16 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 .setView(dialogView)
                 .create();
 
+        presetGroup.setOnCheckedChangeListener((group, checkedId) -> applyVideoPresetDefaults(
+                videoPresetFromId(checkedId),
+                resolutionGroup,
+                codecGroup,
+                autoBitrateCheck,
+                keepFrameRateCheck,
+                fallbackH264Check,
+                bitrateValueText,
+                bitrateSlider
+        ));
         autoBitrateCheck.setOnCheckedChangeListener((buttonView, isChecked) -> {
             bitrateSlider.setEnabled(!isChecked);
             bitrateValueText.setEnabled(!isChecked);
@@ -873,7 +880,6 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                     presetGroup,
                     resolutionGroup,
                     codecGroup,
-                    audioGroup,
                     autoBitrateCheck,
                     keepFrameRateCheck,
                     fallbackH264Check,
@@ -891,7 +897,6 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             RadioGroup presetGroup,
             RadioGroup resolutionGroup,
             RadioGroup codecGroup,
-            RadioGroup audioGroup,
             CheckBox autoBitrateCheck,
             CheckBox keepFrameRateCheck,
             CheckBox fallbackH264Check,
@@ -901,7 +906,6 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         presetGroup.check(idForVideoPreset(settings.getPreset()));
         resolutionGroup.check(idForVideoResolution(settings.getResolutionOption()));
         codecGroup.check(idForVideoCodec(settings.getCodecOption()));
-        audioGroup.check(idForVideoAudio(settings.getAudioMode()));
         autoBitrateCheck.setChecked(settings.isAutoBitrate());
         keepFrameRateCheck.setChecked(settings.isKeepFrameRate());
         fallbackH264Check.setChecked(settings.isFallbackToH264());
@@ -915,7 +919,6 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             RadioGroup presetGroup,
             RadioGroup resolutionGroup,
             RadioGroup codecGroup,
-            RadioGroup audioGroup,
             CheckBox autoBitrateCheck,
             CheckBox keepFrameRateCheck,
             CheckBox fallbackH264Check,
@@ -927,10 +930,39 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 videoCodecFromId(codecGroup.getCheckedRadioButtonId()),
                 bitrateSlider.getValue(),
                 autoBitrateCheck.isChecked(),
-                videoAudioFromId(audioGroup.getCheckedRadioButtonId()),
+                com.duckya.yaya.model.VideoAudioMode.KEEP,
                 keepFrameRateCheck.isChecked(),
                 fallbackH264Check.isChecked()
         );
+    }
+
+    private void applyVideoPresetDefaults(
+            VideoCompressionPreset preset,
+            RadioGroup resolutionGroup,
+            RadioGroup codecGroup,
+            CheckBox autoBitrateCheck,
+            CheckBox keepFrameRateCheck,
+            CheckBox fallbackH264Check,
+            TextView bitrateValueText,
+            Slider bitrateSlider
+    ) {
+        VideoCompressionSettings presetSettings;
+        if (preset == VideoCompressionPreset.HIGH_QUALITY) {
+            presetSettings = VideoCompressionSettings.highQuality();
+        } else if (preset == VideoCompressionPreset.SHARE) {
+            presetSettings = VideoCompressionSettings.share();
+        } else {
+            presetSettings = VideoCompressionSettings.balanced();
+        }
+        resolutionGroup.check(idForVideoResolution(presetSettings.getResolutionOption()));
+        codecGroup.check(idForVideoCodec(presetSettings.getCodecOption()));
+        autoBitrateCheck.setChecked(presetSettings.isAutoBitrate());
+        keepFrameRateCheck.setChecked(presetSettings.isKeepFrameRate());
+        fallbackH264Check.setChecked(presetSettings.isFallbackToH264());
+        bitrateSlider.setValue(presetSettings.getTargetBitrateMbps());
+        bitrateSlider.setEnabled(!presetSettings.isAutoBitrate());
+        bitrateValueText.setEnabled(!presetSettings.isAutoBitrate());
+        bitrateValueText.setText(getString(R.string.video_bitrate_value, presetSettings.getTargetBitrateMbps()));
     }
 
     private int idForVideoPreset(VideoCompressionPreset preset) {
@@ -997,26 +1029,6 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
             return VideoCodecOption.H264;
         }
         return VideoCodecOption.AUTO;
-    }
-
-    private int idForVideoAudio(VideoAudioMode mode) {
-        if (mode == VideoAudioMode.REDUCE) {
-            return R.id.video_audio_reduce;
-        }
-        if (mode == VideoAudioMode.MUTE) {
-            return R.id.video_audio_mute;
-        }
-        return R.id.video_audio_keep;
-    }
-
-    private VideoAudioMode videoAudioFromId(int id) {
-        if (id == R.id.video_audio_reduce) {
-            return VideoAudioMode.REDUCE;
-        }
-        if (id == R.id.video_audio_mute) {
-            return VideoAudioMode.MUTE;
-        }
-        return VideoAudioMode.KEEP;
     }
 
     // 用卡片边框和单选按钮同步展示当前选中的压缩档位。
