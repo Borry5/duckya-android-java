@@ -25,6 +25,11 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
+// 文件说明：
+// 1. 这个文件用于执行单张照片压缩任务。
+// 2. 输入是系统相册中的图片 Uri、图片基础信息、照片压缩参数，以及进度回调。
+// 3. 处理是读取原图、计算压缩方案、缩放并重新编码 JPEG、复制 EXIF 信息，再把原图副本和压缩图写入系统相册。
+// 4. 输出是压缩结果对象，其中包含压缩后文件大小、原图副本 Uri、压缩图 Uri。
 // 负责执行单张图片压缩，并把原图副本和压缩结果写回系统相册。
 public class ImageCompressionWorker {
     private static final String COMPARISON_ALBUM_PATH = "DCIM/压缩对照";
@@ -110,8 +115,14 @@ public class ImageCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于执行照片压缩完整主流程。
+    // 2. 输入是 Context、媒体项信息、照片压缩设置、可选的进度回调。
+    // 3. 处理是读取原图尺寸、生成压缩方案、解码 Bitmap、必要时缩放、压缩成临时 JPEG、复制 EXIF，并写回“压缩对照”相册。
+    // 4. 输出是 Result，里面包含压缩后大小、原图副本 Uri、压缩图 Uri。
     public Result compress(Context context, MediaItemInfo item, CompressionSettings settings, @Nullable ProgressCallback callback)
             throws IOException, InterruptedException {
+        // 照片压缩主流程：读取原图 -> 计算压缩方案 -> 生成临时压缩图 -> 把原图副本和压缩图一起写入“压缩对照”相册。
         if (!publishProgress(callback, 0.05f)) {
             throw new InterruptedException("compression cancelled");
         }
@@ -185,6 +196,10 @@ public class ImageCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于只读取图片边界信息，不加载完整像素。
+    // 2. 输入是 ContentResolver、原图 Uri、BitmapFactory.Options。
+    // 3. 输出为空，但会把宽高写入 options 中。
     private void decodeBounds(ContentResolver resolver, Uri uri, BitmapFactory.Options options) throws IOException {
         try (InputStream inputStream = resolver.openInputStream(uri)) {
             if (inputStream == null) {
@@ -194,6 +209,10 @@ public class ImageCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于把原图真正解码为 Bitmap。
+    // 2. 输入是 ContentResolver、原图 Uri、解码参数 options。
+    // 3. 输出是解码后的 Bitmap。
     private Bitmap decodeBitmap(ContentResolver resolver, Uri uri, BitmapFactory.Options options) throws IOException {
         try (InputStream inputStream = resolver.openInputStream(uri)) {
             if (inputStream == null) {
@@ -203,7 +222,12 @@ public class ImageCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于根据照片设置和原图尺寸生成压缩计划。
+    // 2. 输入是压缩设置、原图宽度、原图高度。
+    // 3. 输出是 CompressionPlan，包含目标长边和 JPEG 质量。
     private CompressionPlan buildCompressionPlan(CompressionSettings settings, int width, int height) {
+        // 视觉无损档位不是写死参数，而是根据图片像素量和长边尺寸动态决定缩放策略。
         if (!settings.isAdaptiveVisualLossless()) {
             return new CompressionPlan(settings.getMaxLongSide(), settings.getJpegQuality());
         }
@@ -219,6 +243,10 @@ public class ImageCompressionWorker {
         return new CompressionPlan(targetLongSide, VISUAL_QUALITY_NORMAL);
     }
 
+    // 函数说明：
+    // 1. 这个函数用于为视觉无损档位动态决定更合适的 JPEG 质量。
+    // 2. 输入是压缩设置、当前 Bitmap、兜底 JPEG 质量。
+    // 3. 输出是最终使用的 JPEG 质量值。
     private int resolveJpegQuality(CompressionSettings settings, Bitmap bitmap, int fallbackQuality) {
         if (!settings.isAdaptiveVisualLossless()) {
             return fallbackQuality;
@@ -233,6 +261,10 @@ public class ImageCompressionWorker {
         return VISUAL_QUALITY_NORMAL;
     }
 
+    // 函数说明：
+    // 1. 这个函数用于粗略分析图片细节丰富程度。
+    // 2. 输入是 Bitmap。
+    // 3. 输出是 ImageDetailLevel，表示低、中、高细节。
     private ImageDetailLevel analyzeDetailLevel(Bitmap bitmap) {
         // 抽样估算亮度边缘和整体变化，避免逐像素扫描拖慢超大图。
         int width = bitmap.getWidth();
@@ -268,6 +300,10 @@ public class ImageCompressionWorker {
         return ImageDetailLevel.NORMAL;
     }
 
+    // 函数说明：
+    // 1. 这个函数用于把一个像素颜色换算成亮度值。
+    // 2. 输入是 int 形式的颜色值。
+    // 3. 输出是整数亮度值。
     private int lumaOf(int color) {
         int red = (color >> 16) & 0xFF;
         int green = (color >> 8) & 0xFF;
@@ -275,6 +311,10 @@ public class ImageCompressionWorker {
         return (red * 299 + green * 587 + blue * 114) / 1000;
     }
 
+    // 函数说明：
+    // 1. 这个函数用于计算图片解码采样率，避免超大图直接全尺寸解码。
+    // 2. 输入是原图宽高和目标最大长边。
+    // 3. 输出是 inSampleSize。
     private int calculateInSampleSize(int width, int height, int maxLongSide) {
         int sampleSize = 1;
         int longSide = Math.max(width, height);
@@ -284,6 +324,10 @@ public class ImageCompressionWorker {
         return Math.max(sampleSize, 1);
     }
 
+    // 函数说明：
+    // 1. 这个函数用于在必要时按最大长边缩放图片。
+    // 2. 输入是原始 Bitmap 和目标最大长边。
+    // 3. 输出是缩放后的 Bitmap；如果无需缩放则直接返回原 Bitmap。
     private Bitmap scaleBitmapIfNeeded(Bitmap bitmap, int maxLongSide) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
@@ -297,7 +341,12 @@ public class ImageCompressionWorker {
         return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
     }
 
+    // 函数说明：
+    // 1. 这个函数用于把 Bitmap 以 JPEG 格式压缩到临时文件。
+    // 2. 输入是 Bitmap、JPEG 质量和临时文件。
+    // 3. 输出为空，结果写入 tempFile。
     private void compressToTempFile(Bitmap bitmap, int jpegQuality, File tempFile) throws IOException {
+        // 图片真正的“压缩引擎”在这里，本质上是 Android Bitmap 重新编码成 JPEG。
         try (FileOutputStream outputStream = new FileOutputStream(tempFile, false)) {
             boolean success = bitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality, outputStream);
             if (!success) {
@@ -307,6 +356,10 @@ public class ImageCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于把原图的 EXIF 信息复制到压缩图。
+    // 2. 输入是 Context、原图 Uri、压缩后的目标文件。
+    // 3. 输出为空，效果是把拍摄信息写回目标文件。
     private void copyExifToCompressedFile(Context context, Uri sourceUri, File targetFile) {
         // Bitmap 重新编码会丢失 EXIF，这里把拍摄设备、ISO、焦距等拍摄信息写回压缩图。
         try (InputStream inputStream = context.getContentResolver().openInputStream(sourceUri)) {
@@ -331,6 +384,10 @@ public class ImageCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于把原图副本保存到“压缩对照”相册。
+    // 2. 输入是 Context、媒体项、对照文件名。
+    // 3. 输出是保存后的原图副本 Uri。
     private Uri saveOriginalToComparisonAlbum(Context context, MediaItemInfo item, ComparisonFileNames fileNames)
             throws IOException {
         try (InputStream inputStream = context.getContentResolver().openInputStream(item.getUri())) {
@@ -341,6 +398,10 @@ public class ImageCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于把压缩后的临时图片保存到“压缩对照”相册。
+    // 2. 输入是 Context、对照文件名、临时压缩文件。
+    // 3. 输出是保存后的压缩图 Uri。
     private Uri saveCompressedToComparisonAlbum(Context context, ComparisonFileNames fileNames, File tempFile)
             throws IOException {
         try (InputStream inputStream = new FileInputStream(tempFile)) {
@@ -348,8 +409,13 @@ public class ImageCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于通过 MediaStore 把输入流内容写入系统相册。
+    // 2. 输入是 Context、输入流、显示文件名、MIME 类型。
+    // 3. 输出是系统相册中新建媒体条目的 Uri。
     private Uri copyStreamToGallery(Context context, InputStream inputStream, String displayName, String mimeType)
             throws IOException {
+        // 统一通过 MediaStore 写回系统相册，避免直接操作外部存储文件带来的兼容性问题。
         ContentResolver resolver = context.getContentResolver();
         ContentValues values = new ContentValues();
         values.put(MediaStore.Images.Media.DISPLAY_NAME, displayName);
@@ -386,6 +452,10 @@ public class ImageCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于生成原图副本和压缩图的成对文件名。
+    // 2. 输入是媒体项信息。
+    // 3. 输出是 ComparisonFileNames，对应原图文件名、压缩图文件名和 MIME 类型。
     private ComparisonFileNames buildComparisonFileNames(MediaItemInfo item) {
         String extension = extractExtension(item.getName(), "jpg");
         String batchBaseName = buildComparisonBatchBaseName(item);
@@ -396,12 +466,20 @@ public class ImageCompressionWorker {
         );
     }
 
+    // 函数说明：
+    // 1. 这个函数用于生成一次压缩任务的唯一批次名。
+    // 2. 输入是媒体项信息。
+    // 3. 输出是字符串形式的批次基名。
     private String buildComparisonBatchBaseName(MediaItemInfo item) {
         String timeText = new SimpleDateFormat(COMPARISON_TIME_PATTERN, Locale.US).format(new Date());
         String sourceKey = buildShortSourceKey(item);
         return buildBaseName(item.getName()) + "_" + timeText + "_" + sourceKey;
     }
 
+    // 函数说明：
+    // 1. 这个函数用于从原文件名中提取安全的基础文件名。
+    // 2. 输入是原始文件名。
+    // 3. 输出是去掉扩展名并清理非法字符后的基础名。
     private String buildBaseName(@Nullable String sourceName) {
         String baseName = sourceName == null ? "image" : sourceName.trim();
         int dotIndex = baseName.lastIndexOf('.');
@@ -415,6 +493,10 @@ public class ImageCompressionWorker {
         return baseName;
     }
 
+    // 函数说明：
+    // 1. 这个函数用于从原文件名中提取扩展名。
+    // 2. 输入是原始文件名和默认扩展名。
+    // 3. 输出是最终扩展名字符串。
     private String extractExtension(@Nullable String sourceName, String fallback) {
         if (sourceName == null) {
             return fallback;
@@ -430,12 +512,20 @@ public class ImageCompressionWorker {
         return extension.isEmpty() ? fallback : extension;
     }
 
+    // 函数说明：
+    // 1. 这个函数用于根据原图来源生成短标识，避免同名图片冲突。
+    // 2. 输入是媒体项信息。
+    // 3. 输出是字符串形式的短标识。
     private String buildShortSourceKey(MediaItemInfo item) {
         // 用原图 Uri、大小和修改时间生成短标识，同名照片也能稳定区分。
         String rawKey = item.getUri() + "|" + item.getSizeBytes() + "|" + item.getModifiedTimeMs();
         return String.format(Locale.US, "%08x", rawKey.hashCode());
     }
 
+    // 函数说明：
+    // 1. 这个函数用于根据扩展名推断图片 MIME 类型。
+    // 2. 输入是扩展名。
+    // 3. 输出是 MIME 类型字符串。
     private String inferImageMimeType(String extension) {
         if ("png".equals(extension)) {
             return "image/png";
@@ -480,6 +570,10 @@ public class ImageCompressionWorker {
         HIGH
     }
 
+    // 函数说明：
+    // 1. 这个函数用于统一分发压缩进度。
+    // 2. 输入是进度回调和当前进度值。
+    // 3. 输出是布尔值，表示任务是否继续执行。
     private boolean publishProgress(@Nullable ProgressCallback callback, float progress) {
         return callback == null || callback.onProgress(progress);
     }

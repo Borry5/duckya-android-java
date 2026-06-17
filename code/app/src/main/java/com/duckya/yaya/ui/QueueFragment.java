@@ -59,6 +59,12 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * 这个文件是“任务队列”页面的核心控制器，负责展示待处理任务、已完成任务、预览详情和回收交互。
+ * 输入是 QueueManager 提供的任务数据、用户点击开始暂停清空回收等操作，以及系统回收授权结果。
+ * 处理过程是根据任务状态刷新三个子页面，分发图片和视频设置弹窗，发起系统回收请求，并处理预览加载。
+ * 输出是任务队列页的界面展示、任务状态更新，以及与系统相册回收授权相关的反馈结果。
+ */
 public class QueueFragment extends Fragment implements QueueChangeListener {
     private static final long ONE_GB_BYTES = 1024L * 1024L * 1024L;
 
@@ -131,6 +137,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
 
     @Nullable
     @Override
+    /**
+     * 这个函数用于创建任务队列页的根视图。
+     * 输入是布局加载参数 inflater、container 和 savedInstanceState。
+     * 输出是 fragment_queue.xml 对应的页面 View。
+     */
     public View onCreateView(
             @NonNull LayoutInflater inflater,
             @Nullable ViewGroup container,
@@ -140,6 +151,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     }
 
     @Override
+    /**
+     * 这个函数用于初始化任务队列页、已完成页和预览页的全部控件与监听。
+     * 输入是根 View 和可选的 savedInstanceState。
+     * 输出是可以响应队列变化和用户操作的完整任务页面。
+     */
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         mainPage = view.findViewById(R.id.queue_main_page);
@@ -222,6 +238,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     }
 
     @Override
+    /**
+     * 这个函数用于在页面销毁时移除监听并释放 View 引用。
+     * 输入是无。
+     * 输出是清理页面相关资源，避免内存泄漏和过期回调。
+     */
     public void onDestroyView() {
         super.onDestroyView();
         queueManager.removeListener(this);
@@ -268,12 +289,22 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     }
 
     @Override
+    /**
+     * 这个函数用于在 Fragment 生命周期结束时关闭预览线程池。
+     * 输入是无。
+     * 输出是停止后台图片预览任务。
+     */
     public void onDestroy() {
         super.onDestroy();
         previewImageExecutor.shutdownNow();
     }
 
     @Override
+    /**
+     * 这个函数用于接收队列变化通知并切回主线程刷新界面。
+     * 输入是无。
+     * 输出是触发一次页面刷新。
+     */
     public void onQueueChanged() {
         if (getActivity() == null) {
             return;
@@ -281,6 +312,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         requireActivity().runOnUiThread(this::refreshQueue);
     }
 
+    /**
+     * 这个函数用于让底部导航重新进入任务队列时回到主队列首页。
+     * 输入是无。
+     * 输出是显示包含“清空”和“开始”的主页面。
+     */
     // 底部导航再次进入任务队列时，总是回到带“清空”和“开始”的主页面。
     public void showQueueRootPage() {
         if (mainPage == null || completedPage == null || previewPage == null) {
@@ -292,6 +328,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         showMainPage();
     }
 
+    /**
+     * 这个函数用于从队列管理器读取最新数据并刷新整个任务页面。
+     * 输入是当前队列状态和页面引用。
+     * 输出是更新主队列、已完成列表、预览按钮和统计信息。
+     */
     private void refreshQueue() {
         if (adapter == null || completedAdapter == null || savedText == null || remainingText == null
                 || emptyText == null || completedCountText == null || completedEmptyText == null
@@ -335,6 +376,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         requestPendingQueueRecycleIfNeeded();
     }
 
+    /**
+     * 这个函数用于格式化当前队列预计剩余时间。
+     * 输入是队列管理器返回的预计毫秒值。
+     * 输出是适合界面显示的时间字符串。
+     */
     private String formatRemainingEstimate() {
         long remainingTimeMs = queueManager.estimatedRemainingTimeMs();
         if (remainingTimeMs < 0L) {
@@ -343,6 +389,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return FormatUtils.formatDuration(remainingTimeMs);
     }
 
+    /**
+     * 这个函数用于创建任务卡片的点击事件回调集合。
+     * 输入是无。
+     * 输出是适配器使用的监听器实现。
+     */
     private QueueTaskAdapter.Listener createQueueListener() {
         return new QueueTaskAdapter.Listener() {
             @Override
@@ -383,6 +434,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         };
     }
 
+    /**
+     * 这个函数用于判断已完成任务里是否还存在可回收原文件。
+     * 输入是已完成任务列表。
+     * 输出是是否至少存在一个未回收原文件。
+     */
     private boolean hasRecyclableOriginal(List<QueueTask> tasks) {
         for (QueueTask task : tasks) {
             if (!task.isOriginalRecycled()) {
@@ -392,6 +448,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return false;
     }
 
+    /**
+     * 这个函数用于在真正开始压缩前先检查是否存在待授权的回收任务。
+     * 输入是无。
+     * 输出是先发起回收授权或直接启动剩余任务。
+     */
     private void startQueueWithRecycleCheck() {
         List<QueueTask> recycleTasks = collectPendingRecycleQueueTasks();
         if (!recycleTasks.isEmpty()) {
@@ -401,6 +462,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         queueManager.startIfHasPendingTasks();
     }
 
+    /**
+     * 这个函数用于批量回收所有已完成任务中的原文件。
+     * 输入是无。
+     * 输出是发起回收确认或直接请求系统回收授权。
+     */
     private void recycleAllOriginals() {
         List<QueueTask> targets = new ArrayList<>();
         for (QueueTask task : queueManager.getCompletedTasks()) {
@@ -415,6 +481,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         requestRecycle(targets, false);
     }
 
+    /**
+     * 这个函数用于回收某个任务的原文件或压缩产物。
+     * 输入是目标任务和是否回收压缩产物的标记。
+     * 输出是发起确认弹窗或系统回收请求。
+     */
     private void recycleTaskMedia(QueueTask task, boolean outputTarget) {
         List<QueueTask> targets = new ArrayList<>();
         targets.add(task);
@@ -425,6 +496,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         requestRecycle(targets, outputTarget);
     }
 
+    /**
+     * 这个函数用于判断是否需要在回收前提醒“另一份已经回收”。
+     * 输入是目标任务列表和回收目标类型。
+     * 输出是是否需要额外确认弹窗。
+     */
     private boolean shouldConfirmCounterpartRecycle(List<QueueTask> tasks, boolean outputTarget) {
         for (QueueTask task : tasks) {
             boolean counterpartRecycled = outputTarget ? task.isOriginalRecycled() : task.isOutputRecycled();
@@ -437,6 +513,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return false;
     }
 
+    /**
+     * 这个函数用于展示继续回收前的风险确认弹窗。
+     * 输入是目标任务列表和回收目标类型。
+     * 输出是由用户决定是否继续发起回收请求。
+     */
     // 原图和压缩图通常保留其一；当另一份已回收时，继续回收前先明确提醒用户。
     private void showCounterpartRecycleConfirmDialog(List<QueueTask> tasks, boolean outputTarget) {
         new MaterialAlertDialogBuilder(requireContext())
@@ -450,6 +531,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 .show();
     }
 
+    /**
+     * 这个函数用于整理待回收 Uri 并发起系统回收授权请求。
+     * 输入是目标任务列表和回收目标类型。
+     * 输出是系统授权弹窗或失败提示。
+     */
     private void requestRecycle(List<QueueTask> tasks, boolean outputTarget) {
         if (!trashManager.isTrashRequestSupported()) {
             Toast.makeText(requireContext(), R.string.queue_recycle_pending, Toast.LENGTH_SHORT).show();
@@ -484,6 +570,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         }
     }
 
+    /**
+     * 这个函数用于检测队列里是否存在等待授权的删除任务，并及时发起系统弹窗。
+     * 输入是无。
+     * 输出是删除任务的回收授权流程或失败回写。
+     */
     private void requestPendingQueueRecycleIfNeeded() {
         if (pendingRecycleRequest != null || !isAdded()) {
             return;
@@ -529,6 +620,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         }
     }
 
+    /**
+     * 这个函数用于收集主队列中还未完成授权的删除任务。
+     * 输入是无。
+     * 输出是待处理的删除任务列表。
+     */
     private List<QueueTask> collectPendingRecycleQueueTasks() {
         List<QueueTask> recycleTasks = new ArrayList<>();
         for (QueueTask task : queueManager.getActiveTasks()) {
@@ -543,6 +639,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return recycleTasks;
     }
 
+    /**
+     * 这个函数用于把删除任务切换到等待授权状态并触发回收请求。
+     * 输入是待回收的删除任务列表。
+     * 输出是更新任务状态并尝试申请系统授权。
+     */
     private void requestDeleteQueueRecycle(List<QueueTask> tasks) {
         List<String> taskIds = new ArrayList<>();
         for (QueueTask task : tasks) {
@@ -552,6 +653,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         requestPendingQueueRecycleIfNeeded();
     }
 
+    /**
+     * 这个函数用于把任务对象列表转换成任务 id 列表。
+     * 输入是任务列表。
+     * 输出是对应的任务 id 集合。
+     */
     private List<String> collectTaskIds(List<QueueTask> tasks) {
         List<String> taskIds = new ArrayList<>();
         for (QueueTask task : tasks) {
@@ -560,6 +666,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return taskIds;
     }
 
+    /**
+     * 这个函数用于显示清空主队列前的确认弹窗。
+     * 输入是无。
+     * 输出是用户确认后清空未完成任务。
+     */
     // 清空主队列会移除待处理、处理中和失败任务，先确认可以减少误触损失。
     private void showClearQueueConfirmDialog() {
         new MaterialAlertDialogBuilder(requireContext())
@@ -571,6 +682,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 .show();
     }
 
+    /**
+     * 这个函数用于显示清空已完成任务前的确认弹窗。
+     * 输入是无。
+     * 输出是用户确认后清空已完成记录并返回主页面。
+     */
     // 清空已完成任务前增加一次确认，避免误触直接清空记录列表。
     private void showClearCompletedConfirmDialog() {
         new MaterialAlertDialogBuilder(requireContext())
@@ -584,6 +700,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 .show();
     }
 
+    /**
+     * 这个函数用于切换显示已完成任务二级页面。
+     * 输入是无。
+     * 输出是显示已完成任务列表；如果没有任务则提示用户。
+     */
     private void showCompletedPage() {
         java.util.List<QueueTask> completedTasks = queueManager.getCompletedTasks();
         if (completedTasks.isEmpty()) {
@@ -596,6 +717,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         completedPage.setVisibility(View.VISIBLE);
     }
 
+    /**
+     * 这个函数用于显示主任务队列页面。
+     * 输入是无。
+     * 输出是隐藏已完成页和预览页，回到主队列页。
+     */
     private void showMainPage() {
         if (mainPage == null || completedPage == null || previewPage == null) {
             return;
@@ -606,6 +732,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         previewTask = null;
     }
 
+    /**
+     * 这个函数用于同步原图预览和压缩图预览的缩放状态。
+     * 输入是目标缩放视图和源视图的缩放状态。
+     * 输出是两个对比预览保持联动缩放。
+     */
     private void syncPreviewZoom(ZoomImageView target, ZoomImageView.ZoomState state) {
         if (syncingPreviewZoom || target == null) {
             return;
@@ -619,6 +750,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         }
     }
 
+    /**
+     * 这个函数用于进入某个已完成任务的预览详情页。
+     * 输入是被预览的任务对象。
+     * 输出是加载图片或视频预览，并显示原始信息与压缩信息。
+     */
     private void showPreviewPage(QueueTask task) {
         if (mainPage == null || previewPage == null || completedPage == null || previewOriginalImage == null
                 || previewCompressedImage == null || previewOriginalInfoText == null || previewCompressedInfoText == null
@@ -648,6 +784,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         bindPreviewActions(task);
     }
 
+    /**
+     * 这个函数用于把预览页切换到图片对比模式。
+     * 输入是无。
+     * 输出是隐藏视频控件并显示双图预览控件。
+     */
     private void bindImagePreviewMode() {
         previewOriginalVideo.stopPlayback();
         previewCompressedVideo.stopPlayback();
@@ -657,6 +798,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         previewCompressedImage.setVisibility(View.VISIBLE);
     }
 
+    /**
+     * 这个函数用于绑定单个视频预览控件。
+     * 输入是目标 VideoView、占位图片控件、错误提示控件和视频 Uri。
+     * 输出是可循环播放的视频预览或错误提示。
+     */
     private void bindVideoPreview(VideoView videoView, ZoomImageView imageView, TextView errorText, @Nullable Uri uri) {
         imageView.setImageBitmap(null);
         imageView.setVisibility(View.GONE);
@@ -681,6 +827,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         });
     }
 
+    /**
+     * 这个函数用于根据任务状态刷新预览页上的按钮文案和可用状态。
+     * 输入是当前预览任务。
+     * 输出是原文件回收、压缩产物回收、重新压缩按钮的最新状态。
+     */
     private void bindPreviewActions(QueueTask task) {
         boolean isVideo = task.getMedia().getKind() == MediaKind.VIDEO;
         previewRecycleOriginalButton.setText(isVideo
@@ -704,6 +855,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         previewRecompressButton.setEnabled(task.getAction() == QueueAction.COMPRESS && !task.isOriginalRecycled());
     }
 
+    /**
+     * 这个函数用于解析预览页原始文件应该展示的 Uri。
+     * 输入是当前任务。
+     * 输出是优先使用对照相册副本、否则回退到原始媒体 Uri。
+     */
     private Uri resolvePreviewOriginalUri(QueueTask task) {
         // 优先展示“压缩对照”相册里的原始版本副本，避免原始相册 URI 因云端占位或权限时序而空白。
         if (task.getOriginalAssetUri() != null) {
@@ -717,6 +873,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return task.getMedia().getUri();
     }
 
+    /**
+     * 这个函数用于异步加载图片预览并回到主线程更新 UI。
+     * 输入是当前加载代次、目标图片控件、错误控件、图片 Uri 和调试标签。
+     * 输出是预览位图显示结果或错误提示。
+     */
     private void loadPreviewImage(
             int generation,
             ZoomImageView imageView,
@@ -757,6 +918,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     }
 
     @Nullable
+    /**
+     * 这个函数用于按采样率解码适合预览的大图 Bitmap。
+     * 输入是 ContentResolver、图片 Uri 和调试标签。
+     * 输出是预览用 Bitmap；解码失败时返回 null。
+     */
     private Bitmap decodeSampledPreviewBitmap(ContentResolver resolver, Uri uri, String label) {
         BitmapFactory.Options boundsOptions = new BitmapFactory.Options();
         boundsOptions.inJustDecodeBounds = true;
@@ -795,6 +961,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         }
     }
 
+    /**
+     * 这个函数用于根据原图尺寸计算预览采样倍率。
+     * 输入是原图宽高。
+     * 输出是适合预览的 inSampleSize。
+     */
     private int calculatePreviewSampleSize(int width, int height) {
         int sampleSize = 1;
         while (Math.max(width / sampleSize, height / sampleSize) > PREVIEW_MAX_LONG_SIDE
@@ -805,6 +976,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     }
 
     @Nullable
+    /**
+     * 这个函数用于从“压缩对照”相册反查图片任务对应的原始副本 Uri。
+     * 输入是当前队列任务。
+     * 输出是匹配到的原始副本 Uri；找不到时返回 null。
+     */
     private Uri findComparisonOriginalUri(QueueTask task) {
         Uri compressedUri = task.getCompressedAssetUri();
         if (compressedUri == null) {
@@ -848,6 +1024,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
     }
 
     @Nullable
+    /**
+     * 这个函数用于读取指定 Uri 对应媒体的显示名称。
+     * 输入是媒体 Uri。
+     * 输出是显示名称字符串；读取失败时返回 null。
+     */
     private String queryDisplayName(Uri uri) {
         String[] projection = {MediaStore.Images.Media.DISPLAY_NAME};
         try (Cursor cursor = requireContext().getContentResolver().query(uri, projection, null, null, null)) {
@@ -863,6 +1044,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return null;
     }
 
+    /**
+     * 这个函数用于判断指定任务是否仍存在于给定列表中。
+     * 输入是任务列表和任务 id。
+     * 输出是是否存在的布尔值。
+     */
     private boolean containsTask(List<QueueTask> tasks, String taskId) {
         for (QueueTask task : tasks) {
             if (task.getId().equals(taskId)) {
@@ -872,6 +1058,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return false;
     }
 
+    /**
+     * 这个函数用于构建预览页原始文件信息文案。
+     * 输入是当前任务。
+     * 输出是原文件大小和分辨率的展示字符串。
+     */
     private String buildOriginalInfo(QueueTask task) {
         int width = task.getMedia().getWidth();
         int height = task.getMedia().getHeight();
@@ -880,6 +1071,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 + getString(R.string.completed_preview_resolution) + "：" + formatResolution(width, height);
     }
 
+    /**
+     * 这个函数用于构建预览页压缩文件信息文案。
+     * 输入是当前任务。
+     * 输出是压缩文件大小和分辨率的展示字符串。
+     */
     private String buildCompressedInfo(QueueTask task) {
         Uri compressedUri = task.getCompressedAssetUri();
         if (compressedUri == null || task.getActualOutputBytes() <= 0L) {
@@ -892,6 +1088,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
                 + getString(R.string.completed_preview_resolution) + "：" + formatResolution(bounds.width, bounds.height);
     }
 
+    /**
+     * 这个函数用于只读取图片边界信息，不完整解码位图。
+     * 输入是图片 Uri。
+     * 输出是图片宽高信息对象。
+     */
     private ImageBounds readImageBounds(Uri uri) {
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = true;
@@ -905,6 +1106,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return new ImageBounds(Math.max(options.outWidth, 0), Math.max(options.outHeight, 0));
     }
 
+    /**
+     * 这个函数用于把分辨率宽高转换成界面文案。
+     * 输入是宽度和高度。
+     * 输出是如“1920 x 1080”的字符串；未知时返回占位符。
+     */
     private String formatResolution(int width, int height) {
         if (width <= 0 || height <= 0) {
             return "--";
@@ -916,6 +1122,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         private final int width;
         private final int height;
 
+        /**
+         * 这个构造函数用于保存图片边界信息。
+         * 输入是图片宽度和高度。
+         * 输出是一个 ImageBounds 对象。
+         */
         private ImageBounds(int width, int height) {
             this.width = width;
             this.height = height;
@@ -927,23 +1138,43 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         private final boolean outputTarget;
         private final boolean deleteQueueRequest;
 
+        /**
+         * 这个构造函数用于创建普通回收请求记录。
+         * 输入是任务 id 列表和是否回收压缩产物的标记。
+         * 输出是一个 PendingRecycleRequest 对象。
+         */
         private PendingRecycleRequest(List<String> taskIds, boolean outputTarget) {
             this.taskIds = taskIds;
             this.outputTarget = outputTarget;
             this.deleteQueueRequest = false;
         }
 
+        /**
+         * 这个构造函数用于创建完整的回收请求记录。
+         * 输入是任务 id 列表、目标类型和是否属于删除队列授权。
+         * 输出是一个 PendingRecycleRequest 对象。
+         */
         private PendingRecycleRequest(List<String> taskIds, boolean outputTarget, boolean deleteQueueRequest) {
             this.taskIds = taskIds;
             this.outputTarget = outputTarget;
             this.deleteQueueRequest = deleteQueueRequest;
         }
 
+        /**
+         * 这个函数用于创建“删除任务队列”专用的回收请求记录。
+         * 输入是任务 id 列表。
+         * 输出是 deleteQueueRequest 为 true 的 PendingRecycleRequest。
+         */
         private static PendingRecycleRequest forDeleteQueue(List<String> taskIds) {
             return new PendingRecycleRequest(taskIds, false, true);
         }
     }
 
+    /**
+     * 这个函数用于显示图片任务的压缩档位弹窗。
+     * 输入是当前队列任务。
+     * 输出是根据用户选择更新图片压缩设置。
+     */
     // 用安卓原生小弹窗切换每个图片任务的压缩档位。
     private void showCompressionDialog(QueueTask task) {
         if (task.getAction() != com.duckya.yaya.model.QueueAction.COMPRESS) {
@@ -980,6 +1211,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         dialog.show();
     }
 
+    /**
+     * 这个函数用于显示视频任务的压缩设置弹窗。
+     * 输入是当前视频任务。
+     * 输出是绑定视频参数界面，并在确认后更新任务设置。
+     */
     // 视频任务使用独立设置弹窗，避免图片档位和视频参数混在一起。
     private void showVideoCompressionDialog(QueueTask task) {
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_video_compression, null, false);
@@ -1059,6 +1295,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         dialog.show();
     }
 
+    /**
+     * 这个函数用于把当前视频设置对象回填到弹窗控件上。
+     * 输入是任务、视频设置对象和一组弹窗控件。
+     * 输出是完成弹窗默认值、可用状态和文案绑定。
+     */
     private void bindVideoSettingsToDialog(
             QueueTask task,
             VideoCompressionSettings settings,
@@ -1086,6 +1327,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         bitrateValueText.setText(getString(R.string.video_bitrate_value, settings.getTargetBitrateMbps()));
     }
 
+    /**
+     * 这个函数用于从视频设置弹窗控件中收集最新参数。
+     * 输入是任务对象以及分辨率、帧率、码率等控件状态。
+     * 输出是新的 VideoCompressionSettings 对象。
+     */
     private VideoCompressionSettings collectVideoSettings(
             QueueTask task,
             RadioGroup presetGroup,
@@ -1108,6 +1354,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         );
     }
 
+    /**
+     * 这个函数用于在用户调整视频弹窗控件时即时保存设置。
+     * 输入是任务和当前弹窗控件状态。
+     * 输出是把最新设置写回队列任务，并刷新预估信息。
+     */
     private void saveVideoSettingsFromDialog(
             QueueTask task,
             RadioGroup presetGroup,
@@ -1127,10 +1378,20 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         queueManager.updateVideoTaskSettings(task.getId(), settings);
     }
 
+    /**
+     * 这个函数用于判断当前视频任务是否允许启用 1GB 限制。
+     * 输入是视频任务。
+     * 输出是仅当原视频大于 1GB 时返回 true。
+     */
     private boolean isOneGbLimitAllowed(QueueTask task) {
         return task != null && task.getMedia().getSizeBytes() > ONE_GB_BYTES;
     }
 
+    /**
+     * 这个函数用于根据选中的视频档位刷新弹窗默认参数。
+     * 输入是视频档位以及一组弹窗控件。
+     * 输出是同步自定义区显示状态、默认分辨率、帧率和码率模式。
+     */
     private void applyVideoPresetDefaults(
             VideoCompressionPreset preset,
             View advancedSection,
@@ -1160,6 +1421,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         bitrateValueText.setText(getString(R.string.video_bitrate_value, presetSettings.getTargetBitrateMbps()));
     }
 
+    /**
+     * 这个函数用于根据码率模式刷新码率文本和滑块是否可编辑。
+     * 输入是是否启用 1GB 限制、码率文本控件和滑块控件。
+     * 输出是更新后的码率界面状态。
+     */
     private void bindBitrateModeUi(boolean limitToOneGb, TextView bitrateValueText, Slider bitrateSlider) {
         bitrateSlider.setEnabled(!limitToOneGb);
         bitrateValueText.setEnabled(!limitToOneGb);
@@ -1167,10 +1433,20 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         bitrateSlider.setAlpha(limitToOneGb ? 0.55f : 1f);
     }
 
+    /**
+     * 这个函数用于控制视频高级自定义参数区的展开和收起。
+     * 输入是高级设置区域 View 和是否显示。
+     * 输出是高级设置区可见性变化。
+     */
     private void bindCustomSectionVisibility(View advancedSection, boolean visible) {
         advancedSection.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
+    /**
+     * 这个函数用于把视频预设枚举转换成对应的单选按钮 id。
+     * 输入是视频档位枚举。
+     * 输出是布局中的 RadioButton id。
+     */
     private int idForVideoPreset(VideoCompressionPreset preset) {
         if (preset == VideoCompressionPreset.HIGH_QUALITY) {
             return R.id.video_preset_high_quality;
@@ -1184,6 +1460,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return R.id.video_preset_balanced;
     }
 
+    /**
+     * 这个函数用于把单选按钮 id 反向解析成视频预设枚举。
+     * 输入是 RadioButton id。
+     * 输出是对应的视频档位枚举。
+     */
     private VideoCompressionPreset videoPresetFromId(int id) {
         if (id == R.id.video_preset_high_quality) {
             return VideoCompressionPreset.HIGH_QUALITY;
@@ -1197,6 +1478,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return VideoCompressionPreset.BALANCED;
     }
 
+    /**
+     * 这个函数用于把视频分辨率枚举转换成对应的单选按钮 id。
+     * 输入是分辨率枚举。
+     * 输出是布局中的 RadioButton id。
+     */
     private int idForVideoResolution(VideoResolutionOption option) {
         if (option == VideoResolutionOption.ORIGINAL) {
             return R.id.video_resolution_original;
@@ -1216,6 +1502,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return R.id.video_resolution_1080;
     }
 
+    /**
+     * 这个函数用于把单选按钮 id 反向解析成视频分辨率枚举。
+     * 输入是 RadioButton id。
+     * 输出是对应的分辨率枚举。
+     */
     private VideoResolutionOption videoResolutionFromId(int id) {
         if (id == R.id.video_resolution_original) {
             return VideoResolutionOption.ORIGINAL;
@@ -1235,6 +1526,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return VideoResolutionOption.P1080;
     }
 
+    /**
+     * 这个函数用于把视频帧率枚举转换成对应的单选按钮 id。
+     * 输入是帧率枚举。
+     * 输出是布局中的 RadioButton id。
+     */
     private int idForVideoFrameRate(VideoFrameRateOption option) {
         if (option == VideoFrameRateOption.FPS60) {
             return R.id.video_framerate_60;
@@ -1248,6 +1544,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return R.id.video_framerate_original;
     }
 
+    /**
+     * 这个函数用于把单选按钮 id 反向解析成视频帧率枚举。
+     * 输入是 RadioButton id。
+     * 输出是对应的帧率枚举。
+     */
     private VideoFrameRateOption videoFrameRateFromId(int id) {
         if (id == R.id.video_framerate_60) {
             return VideoFrameRateOption.FPS60;
@@ -1261,6 +1562,11 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         return VideoFrameRateOption.ORIGINAL;
     }
 
+    /**
+     * 这个函数用于统一设置图片压缩档位弹窗的选中样式。
+     * 输入是两个选项卡片、两个单选按钮以及是否选中强压缩。
+     * 输出是更新后的卡片描边、背景和单选状态。
+     */
     // 用卡片边框和单选按钮同步展示当前选中的压缩档位。
     private void bindCompressionPresetSelection(
             MaterialCardView lightOption,
@@ -1279,12 +1585,22 @@ public class QueueFragment extends Fragment implements QueueChangeListener {
         strongOption.setStrokeWidth(strongSelected ? dpToPx(2) : dpToPx(1));
     }
 
+    /**
+     * 这个函数用于从当前主题中读取颜色值。
+     * 输入是主题属性 id。
+     * 输出是解析后的颜色整数值。
+     */
     private int resolveThemeColor(int attrResId) {
         android.util.TypedValue value = new android.util.TypedValue();
         requireContext().getTheme().resolveAttribute(attrResId, value, true);
         return value.data;
     }
 
+    /**
+     * 这个函数用于把 dp 单位转换成像素值。
+     * 输入是 dp 数值。
+     * 输出是对应的像素整数值。
+     */
     private int dpToPx(int dp) {
         float density = requireContext().getResources().getDisplayMetrics().density;
         return Math.round(dp * density);

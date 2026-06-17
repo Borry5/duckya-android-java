@@ -41,6 +41,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+// 文件说明：
+// 1. 这个文件用于执行单个视频压缩任务。
+// 2. 输入是系统相册中的视频 Uri、视频基础信息、视频压缩参数，以及进度回调。
+// 3. 处理是调用 Media3 Transformer 执行视频转码，根据设置处理分辨率、码率、帧率和编码回退，再把原视频副本和压缩视频写回系统相册。
+// 4. 输出是压缩结果对象，其中包含压缩后文件大小、原视频副本 Uri、压缩视频 Uri。
 public class VideoCompressionWorker {
     private static final long ONE_GB_BYTES = 1024L * 1024L * 1024L;
 
@@ -72,12 +77,18 @@ public class VideoCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于执行视频压缩完整主流程。
+    // 2. 输入是 Context、媒体项信息、视频压缩设置、可选的进度回调。
+    // 3. 处理是先把视频转码到临时文件，再把原视频副本和压缩视频写入“压缩对照”相册。
+    // 4. 输出是 Result，里面包含压缩后大小、原视频副本 Uri、压缩视频 Uri。
     public Result compress(
             Context context,
             MediaItemInfo item,
             VideoCompressionSettings settings,
             @Nullable ProgressCallback callback
     ) throws Exception {
+        // 视频压缩主流程：先调用 Media3 转码到临时文件，再把原视频副本和压缩视频写入“压缩对照”相册。
         File outputFile = createOutputFile(context);
         try {
             Result fileResult = exportOnceWithFallback(context, item, settings, outputFile, callback);
@@ -90,6 +101,10 @@ public class VideoCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于执行“先 H.265、失败再回退 H.264”的导出流程。
+    // 2. 输入是 Context、媒体项、视频设置、临时输出文件、进度回调。
+    // 3. 输出是导出结果 Result。
     private Result exportOnceWithFallback(
             Context context,
             MediaItemInfo item,
@@ -97,6 +112,7 @@ public class VideoCompressionWorker {
             File outputFile,
             @Nullable ProgressCallback callback
     ) throws Exception {
+        // 默认先尝试 H.265，设备不支持时再自动回退 H.264，兼顾压缩率和兼容性。
         VideoCodecOption firstCodec = settings.getCodecOption();
         if (firstCodec == VideoCodecOption.AUTO) {
             firstCodec = VideoCodecOption.H265;
@@ -115,6 +131,10 @@ public class VideoCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于真正调用 Media3 Transformer 执行一次视频转码。
+    // 2. 输入是 Context、媒体项、视频设置、目标编码格式、临时输出文件、进度回调。
+    // 3. 输出是导出结果 Result。
     private Result export(
             Context context,
             MediaItemInfo item,
@@ -123,6 +143,7 @@ public class VideoCompressionWorker {
             File outputFile,
             @Nullable ProgressCallback callback
     ) throws Exception {
+        // 真正的视频“压缩引擎”是 AndroidX Media3 Transformer，我们负责参数组织、进度回调和失败兜底。
         HandlerThread thread = new HandlerThread("DuckyaVideoTransformer");
         thread.start();
         CountDownLatch doneLatch = new CountDownLatch(1);
@@ -214,6 +235,10 @@ public class VideoCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于把对 Transformer 的调用切换到专属线程执行。
+    // 2. 输入是 Handler 和一个可抛异常的任务。
+    // 3. 输出为空；如果内部执行失败则抛出异常。
     private void postToTransformerThread(Handler handler, ThrowingRunnable runnable) throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Exception> failure = new AtomicReference<>();
@@ -232,6 +257,10 @@ public class VideoCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于创建视频压缩临时输出文件。
+    // 2. 输入是 Context。
+    // 3. 输出是一个可写入的临时 mp4 文件。
     private File createOutputFile(Context context) throws IOException {
         File outputDir = new File(context.getFilesDir(), "video_outputs");
         if (!outputDir.exists() && !outputDir.mkdirs()) {
@@ -240,6 +269,10 @@ public class VideoCompressionWorker {
         return File.createTempFile("duckya_video_", ".mp4", outputDir);
     }
 
+    // 函数说明：
+    // 1. 这个函数用于把编码选项转换成 Media3 需要的 MIME 类型。
+    // 2. 输入是视频编码选项。
+    // 3. 输出是视频 MIME 类型字符串。
     private String videoMimeType(VideoCodecOption codec) {
         if (codec == VideoCodecOption.H265) {
             return MimeTypes.VIDEO_H265;
@@ -247,6 +280,10 @@ public class VideoCompressionWorker {
         return MimeTypes.VIDEO_H264;
     }
 
+    // 函数说明：
+    // 1. 这个函数用于把原视频副本和压缩视频保存到“压缩对照”相册。
+    // 2. 输入是 Context、媒体项、压缩后的临时文件、压缩输出大小。
+    // 3. 输出是最终保存后的 Result。
     private Result saveComparisonVideos(Context context, MediaItemInfo item, File compressedFile, long outputBytes)
             throws IOException {
         ComparisonFileNames names = buildComparisonFileNames(item);
@@ -267,8 +304,13 @@ public class VideoCompressionWorker {
         return new Result(outputBytes, originalUri, compressedUri);
     }
 
+    // 函数说明：
+    // 1. 这个函数用于通过 MediaStore 把视频流写入系统相册。
+    // 2. 输入是 Context、输入流、显示文件名、MIME 类型。
+    // 3. 输出是系统相册中新建视频条目的 Uri。
     private Uri copyStreamToGallery(Context context, InputStream inputStream, String displayName, String mimeType)
             throws IOException {
+        // 转码完成后仍然通过 MediaStore 落到系统相册，保证用户能在相册 App 中直接看到压缩结果。
         ContentResolver resolver = context.getContentResolver();
         ContentValues values = new ContentValues();
         values.put(MediaStore.Video.Media.DISPLAY_NAME, displayName);
@@ -305,6 +347,10 @@ public class VideoCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于生成原视频副本和压缩视频的成对文件名。
+    // 2. 输入是媒体项信息。
+    // 3. 输出是 ComparisonFileNames。
     private ComparisonFileNames buildComparisonFileNames(MediaItemInfo item) {
         String extension = extractExtension(item.getName(), "mp4");
         String baseName = buildBaseName(item.getName());
@@ -318,6 +364,10 @@ public class VideoCompressionWorker {
         );
     }
 
+    // 函数说明：
+    // 1. 这个函数用于从原视频名中提取安全基础名。
+    // 2. 输入是原始文件名。
+    // 3. 输出是清理后的基础名字符串。
     private String buildBaseName(String sourceName) {
         String baseName = sourceName == null ? "video" : sourceName.trim();
         int dotIndex = baseName.lastIndexOf('.');
@@ -328,6 +378,10 @@ public class VideoCompressionWorker {
         return baseName.isEmpty() ? "video" : baseName;
     }
 
+    // 函数说明：
+    // 1. 这个函数用于提取原视频扩展名。
+    // 2. 输入是原始文件名和默认扩展名。
+    // 3. 输出是扩展名字符串。
     private String extractExtension(String sourceName, String fallback) {
         if (sourceName == null) {
             return fallback;
@@ -340,6 +394,10 @@ public class VideoCompressionWorker {
         return extension.isEmpty() ? fallback : extension;
     }
 
+    // 函数说明：
+    // 1. 这个函数用于根据扩展名推断视频 MIME 类型。
+    // 2. 输入是扩展名。
+    // 3. 输出是 MIME 类型字符串。
     private String inferVideoMimeType(String extension) {
         if ("mov".equals(extension) || "qt".equals(extension)) {
             return "video/quicktime";
@@ -353,6 +411,10 @@ public class VideoCompressionWorker {
         return "video/mp4";
     }
 
+    // 函数说明：
+    // 1. 这个函数用于根据分辨率设置生成视频缩放特效。
+    // 2. 输入是媒体项信息和视频压缩设置。
+    // 3. 输出是 Effects；如果不需要缩放则返回空效果。
     private Effects buildEffects(MediaItemInfo item, VideoCompressionSettings settings) {
         int targetHeight = targetHeight(settings.getResolutionOption());
         if (targetHeight <= 0 || item.getHeight() <= 0 || item.getHeight() <= targetHeight) {
@@ -365,6 +427,10 @@ public class VideoCompressionWorker {
         );
     }
 
+    // 函数说明：
+    // 1. 这个函数用于把分辨率选项映射成目标高度。
+    // 2. 输入是分辨率枚举。
+    // 3. 输出是目标高度整数值。
     private int targetHeight(VideoResolutionOption option) {
         switch (option) {
             case P2160:
@@ -383,6 +449,10 @@ public class VideoCompressionWorker {
         }
     }
 
+    // 函数说明：
+    // 1. 这个函数用于计算视频转码目标码率。
+    // 2. 输入是媒体项信息和视频压缩设置。
+    // 3. 输出是最终给编码器使用的 bps 码率值。
     private int resolveTargetBitrateBps(MediaItemInfo item, VideoCompressionSettings settings) {
         int targetBps = Math.round(settings.getTargetBitrateMbps() * 1_000_000f);
         if (settings.isLimitToOneGb() && item.getSizeBytes() > ONE_GB_BYTES && item.getDurationMs() > 0L) {
