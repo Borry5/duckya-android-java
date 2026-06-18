@@ -1,13 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  文件作用：
+  这是 Android 应用的清单文件，用来向系统声明应用的核心配置信息。
+  输入可以理解为 Android 系统在安装、启动和管理应用时读取这里的配置；
+  输出可以理解为系统据此完成权限校验、入口注册、应用信息加载等操作。
+  本文件主要完成三类工作：声明相册读取权限、配置应用级属性、注册主入口 MainActivity。
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- 读取系统相册中的图片资源，供本地扫描和图片压缩流程使用。 -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- 读取系统相册中的视频资源，供本地扫描和视频压缩流程使用。 -->
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!-- 兼容 Android 12 及以下版本的外部存储读取权限。 -->
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!--
+      application 节点用于声明整个应用的全局配置，
+      包括图标、名称、主题、备份规则等。
+    -->
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -17,10 +31,12 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.YaYaJava">
+        <!-- 注册应用启动后的主界面 Activity。 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
+            <!-- 将 MainActivity 声明为桌面启动入口。 -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
