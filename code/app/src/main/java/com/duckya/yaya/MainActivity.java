@@ -30,12 +30,12 @@ public class MainActivity extends AppCompatActivity {
     private Fragment queueFragment;
     private Fragment activeFragment;
 
-    @Override
     /**
      * 这个函数用于固定应用内部的字体缩放比例。
      * 输入是系统即将附加到 Activity 的基础 Context。
      * 输出是经过字体缩放修正后的新 Context，供后续界面加载使用。
      */
+    @Override
     protected void attachBaseContext(Context newBase) {
         // 固定应用内字体缩放，避免系统大字号把当前界面布局撑得过大。
         Configuration configuration = new Configuration(newBase.getResources().getConfiguration());
@@ -43,12 +43,12 @@ public class MainActivity extends AppCompatActivity {
         super.attachBaseContext(newBase.createConfigurationContext(configuration));
     }
 
-    @Override
     /**
      * 这个函数用于初始化主页面、底部导航和首屏显示逻辑。
      * 输入是系统恢复界面时可能传入的 savedInstanceState。
      * 输出是完成布局绑定、队列初始化和页面切换监听后的主界面。
      */
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
