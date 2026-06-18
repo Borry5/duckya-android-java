@@ -81,14 +81,13 @@ public class ScanFragment extends Fragment {
 
     private final ActivityResultLauncher<String[]> permissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), this::onPermissionResult);
-
-    @Nullable
-    @Override
     /**
      * 这个函数用于创建浏览页的根视图。
      * 输入是布局加载参数 inflater、container 和 savedInstanceState。
      * 输出是 fragment_scan.xml 对应的页面 View。
      */
+    @Nullable
+    @Override
     public View onCreateView(
             @NonNull LayoutInflater inflater,
             @Nullable ViewGroup container,
@@ -97,12 +96,12 @@ public class ScanFragment extends Fragment {
         return inflater.inflate(R.layout.fragment_scan, container, false);
     }
 
-    @Override
     /**
      * 这个函数用于初始化浏览页控件、列表适配器和交互监听。
      * 输入是已经创建好的根 View 和可选的 savedInstanceState。
      * 输出是完成初始化的浏览页界面，并按权限状态决定是否开始展示数据。
      */
+    @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         RecyclerView mediaRecycler = view.findViewById(R.id.media_recycler);
@@ -202,12 +201,12 @@ public class ScanFragment extends Fragment {
         }
     }
 
-    @Override
     /**
      * 这个函数用于销毁浏览页时释放线程池和页面引用。
      * 输入是无。
      * 输出是避免页面销毁后继续持有 View 或执行扫描任务。
      */
+    @Override
     public void onDestroyView() {
         super.onDestroyView();
         if (scanExecutor != null) {
@@ -393,7 +392,7 @@ public class ScanFragment extends Fragment {
             }
             visibleItems.add(item);
         }
-        Collections.sort(visibleItems, comparatorFor(sortMode));
+        visibleItems.sort(comparatorFor(sortMode));
         mediaAdapter.submitList(visibleItems);
         mediaAdapter.setCornerBadgeMode(cornerBadgeModeFor(sortMode));
         mediaAdapter.setSelectionMode(selectionMode, selectedUris);
@@ -508,7 +507,8 @@ public class ScanFragment extends Fragment {
      */
     private void showFilterSheet() {
         BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
-        View sheet = LayoutInflater.from(requireContext()).inflate(R.layout.sheet_filter, null, false);
+        ViewGroup root = getView() instanceof ViewGroup ? (ViewGroup) getView() : null;
+        View sheet = LayoutInflater.from(requireContext()).inflate(R.layout.sheet_filter, root, false);
         RadioGroup typeGroup = sheet.findViewById(R.id.filter_type_group);
         if (filterMode == FilterMode.IMAGE) {
             typeGroup.check(R.id.filter_type_image);
@@ -605,7 +605,7 @@ public class ScanFragment extends Fragment {
         fixedSelectionBar.setVisibility(selectionMode ? View.VISIBLE : View.GONE);
         fixedSelectButton.setEnabled(headerControlsEnabled);
         fixedSelectButton.setAlpha(headerControlsEnabled ? 1.0f : 0.65f);
-        boolean hasSelection = selectedUris.size() > 0;
+        boolean hasSelection = !selectedUris.isEmpty();
         fixedCompressButton.setEnabled(hasSelection);
         fixedDeleteButton.setEnabled(hasSelection);
     }
