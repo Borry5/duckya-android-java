@@ -48,6 +48,8 @@ import java.util.concurrent.Executors;
  * 处理过程是驱动扫描缓存、维护当前过滤条件和选中集合，并把用户选择的媒体加入任务队列。
  * 输出是浏览页网格内容、头部状态、固定选择栏，以及提交给队列系统的任务数据。
  */
+
+//浏览本地
 public class ScanFragment extends Fragment {
     private enum FilterMode { ALL, IMAGE, VIDEO }
     private enum SortMode { SIZE, BITRATE, ADDED_TIME }
