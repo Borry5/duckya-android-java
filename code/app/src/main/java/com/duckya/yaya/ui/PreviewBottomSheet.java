@@ -24,6 +24,12 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
 import java.util.Locale;
 
+/**
+ * 这个文件是浏览页单个媒体的预览底部弹窗，负责展示缩略图、基本信息和快捷操作。
+ * 输入是被点击媒体的各项参数，以及用户点击压缩或删除按钮的交互。
+ * 处理过程是从参数中恢复媒体对象，绑定预览内容，并把媒体加入任务队列。
+ * 输出是底部预览弹窗界面，以及新增的压缩或回收任务。
+ */
 public class PreviewBottomSheet extends BottomSheetDialogFragment {
     private static final String ARG_NAME = "name";
     private static final String ARG_URI = "uri";
@@ -34,6 +40,11 @@ public class PreviewBottomSheet extends BottomSheetDialogFragment {
     private static final String ARG_HEIGHT = "height";
     private static final String ARG_DURATION = "duration";
 
+    /**
+     * 这个函数用于根据媒体对象创建一个预览弹窗实例。
+     * 输入是单个媒体对象。
+     * 输出是带有媒体参数的 PreviewBottomSheet 实例。
+     */
     public static PreviewBottomSheet newInstance(MediaItemInfo item) {
         PreviewBottomSheet sheet = new PreviewBottomSheet();
         Bundle args = new Bundle();
@@ -51,6 +62,11 @@ public class PreviewBottomSheet extends BottomSheetDialogFragment {
 
     @Nullable
     @Override
+    /**
+     * 这个函数用于创建预览弹窗的根视图。
+     * 输入是布局加载参数和可选状态。
+     * 输出是 sheet_preview.xml 对应的 View。
+     */
     public View onCreateView(
             @NonNull LayoutInflater inflater,
             @Nullable ViewGroup container,
@@ -60,6 +76,11 @@ public class PreviewBottomSheet extends BottomSheetDialogFragment {
     }
 
     @Override
+    /**
+     * 这个函数用于初始化预览弹窗中的图片、信息和按钮点击事件。
+     * 输入是已创建的根 View 和可选状态。
+     * 输出是一个可预览、可加入任务队列的底部弹窗界面。
+     */
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         MediaItemInfo item = readItem();
@@ -85,6 +106,11 @@ public class PreviewBottomSheet extends BottomSheetDialogFragment {
         });
     }
 
+    /**
+     * 这个函数用于从 arguments 中恢复出一个完整的媒体对象。
+     * 输入是弹窗参数里的名称、Uri、大小、类型等字段。
+     * 输出是一个 MediaItemInfo 对象。
+     */
     private MediaItemInfo readItem() {
         Bundle args = requireArguments();
         return new MediaItemInfo(
@@ -99,6 +125,11 @@ public class PreviewBottomSheet extends BottomSheetDialogFragment {
         );
     }
 
+    /**
+     * 这个函数用于拼接预览弹窗中的媒体信息文本。
+     * 输入是单个媒体对象。
+     * 输出是包含类型、大小、分辨率、时长和码率的说明文字。
+     */
     private String buildInfoText(MediaItemInfo item) {
         String type = item.getKind() == MediaKind.VIDEO
                 ? getString(R.string.preview_type_video)
@@ -116,6 +147,11 @@ public class PreviewBottomSheet extends BottomSheetDialogFragment {
         return builder.toString().trim();
     }
 
+    /**
+     * 这个函数用于把视频时长格式化成分钟秒数字符串。
+     * 输入是毫秒单位的视频时长。
+     * 输出是类似“1:35”的文本。
+     */
     private String formatDuration(long durationMs) {
         long totalSeconds = Math.max(durationMs / 1000L, 0L);
         long minutes = totalSeconds / 60L;
@@ -123,6 +159,11 @@ public class PreviewBottomSheet extends BottomSheetDialogFragment {
         return String.format(Locale.getDefault(), "%d:%02d", minutes, seconds);
     }
 
+    /**
+     * 这个函数用于估算并格式化视频平均码率。
+     * 输入是视频媒体对象。
+     * 输出是类似“6.8”的 Mbps 数值字符串。
+     */
     private String formatBitrate(MediaItemInfo item) {
         if (item.getDurationMs() <= 0L) {
             return "--";

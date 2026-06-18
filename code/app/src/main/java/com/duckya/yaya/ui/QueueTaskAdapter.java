@@ -25,6 +25,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
+/**
+ * 这个文件是任务队列列表的适配器，负责把任务数据绑定到任务卡片上。
+ * 输入是待处理任务或已完成任务列表，以及用户在卡片上触发的取消、重试、预览等操作。
+ * 处理过程是创建任务卡片视图，绑定缩略图、状态、进度、压缩信息和操作按钮。
+ * 输出是任务队列页和已完成页上的任务列表界面，以及对应按钮的交互回调。
+ */
 public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.TaskViewHolder> {
     private static final String PAYLOAD_DYNAMIC = "payload_dynamic";
     private static final long ONE_GB_BYTES = 1024L * 1024L * 1024L;
@@ -50,15 +56,30 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
     private final Listener listener;
     private final boolean completedMode;
 
+    /**
+     * 这个构造函数用于创建默认的任务列表适配器。
+     * 输入是任务卡片事件监听器。
+     * 输出是用于主队列列表的适配器对象。
+     */
     public QueueTaskAdapter(Listener listener) {
         this(listener, false);
     }
 
+    /**
+     * 这个构造函数用于创建任务列表适配器，并指定是否处于已完成模式。
+     * 输入是监听器和 completedMode 标记。
+     * 输出是对应模式下的适配器对象。
+     */
     public QueueTaskAdapter(Listener listener, boolean completedMode) {
         this.listener = listener;
         this.completedMode = completedMode;
     }
 
+    /**
+     * 这个函数用于提交新的任务列表并按需局部刷新。
+     * 输入是最新的任务列表。
+     * 输出是更新后的任务卡片界面和任务快照缓存。
+     */
     public void submitList(List<QueueTask> newTasks) {
         List<TaskSnapshot> newSnapshots = buildSnapshots(newTasks);
         if (!hasSameStructure(newSnapshots)) {
@@ -85,12 +106,22 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
 
     @NonNull
     @Override
+    /**
+     * 这个函数用于创建单个任务卡片的 ViewHolder。
+     * 输入是父容器和视图类型。
+     * 输出是任务卡片对应的 TaskViewHolder。
+     */
     public TaskViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_queue_task, parent, false);
         return new TaskViewHolder(view);
     }
 
     @Override
+    /**
+     * 这个函数用于完整绑定单个任务卡片的内容。
+     * 输入是 ViewHolder 和当前位置。
+     * 输出是显示好的任务卡片。
+     */
     public void onBindViewHolder(@NonNull TaskViewHolder holder, int position) {
         QueueTask task = tasks.get(position);
         holder.sourceSizeText.setText(FormatUtils.formatSize(task.getMedia().getSizeBytes()));
@@ -108,6 +139,11 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
     }
 
     @Override
+    /**
+     * 这个函数用于按 payload 局部刷新任务卡片的动态内容。
+     * 输入是 ViewHolder、位置和局部更新标记。
+     * 输出是只更新状态、进度等动态部分。
+     */
     public void onBindViewHolder(
             @NonNull TaskViewHolder holder,
             int position,
@@ -120,6 +156,11 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         super.onBindViewHolder(holder, position, payloads);
     }
 
+    /**
+     * 这个函数用于绑定任务卡片中会频繁变化的动态状态。
+     * 输入是目标 ViewHolder 和任务对象。
+     * 输出是更新后的状态文本、进度条、输出信息和操作按钮。
+     */
     private void bindDynamicState(TaskViewHolder holder, QueueTask task) {
         holder.statusText.setText(holder.itemView.getContext().getString(statusRes(task.getStatus())));
         holder.outputSizeText.setText(buildOutputText(holder.itemView, task));
@@ -142,10 +183,20 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
     }
 
     @Override
+    /**
+     * 这个函数用于返回当前任务列表的条目总数。
+     * 输入是无。
+     * 输出是任务数量。
+     */
     public int getItemCount() {
         return tasks.size();
     }
 
+    /**
+     * 这个函数用于生成任务卡片里的辅助说明文本。
+     * 输入是当前 View 和任务对象。
+     * 输出是失败原因、删除提示或压缩预设加节省空间说明。
+     */
     private String buildMetaText(View view, QueueTask task) {
         int savedRes = task.getStatus() == QueueStatus.DONE ? R.string.queue_saved_done : R.string.queue_est_saved;
         String saved = view.getContext().getString(savedRes, FormatUtils.formatSize(task.getSavedBytes()));
@@ -158,6 +209,11 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         return String.format(Locale.getDefault(), "%s · %s", presetLabel(view, task), saved);
     }
 
+    /**
+     * 这个函数用于绑定已完成任务卡片上的回收和重新压缩按钮状态。
+     * 输入是目标 ViewHolder 和任务对象。
+     * 输出是更新后的按钮文案和可用状态。
+     */
     private void bindCompletedActions(TaskViewHolder holder, QueueTask task) {
         if (!completedMode) {
             return;
@@ -184,6 +240,11 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         holder.recompressButton.setEnabled(task.getAction() == QueueAction.COMPRESS && !task.isOriginalRecycled());
     }
 
+    /**
+     * 这个函数用于生成任务卡片上的输出大小文本。
+     * 输入是当前 View 和任务对象。
+     * 输出是实际或预估的输出大小字符串。
+     */
     private String buildOutputText(View view, QueueTask task) {
         long outputBytes = task.getActualOutputBytes() > 0L
                 ? task.getActualOutputBytes()
@@ -195,6 +256,11 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         return output;
     }
 
+    /**
+     * 这个函数用于控制视频任务码率文本的显示与内容。
+     * 输入是目标 ViewHolder 和任务对象。
+     * 输出是显示或隐藏视频码率说明文本。
+     */
     private void bindBitrateText(TaskViewHolder holder, QueueTask task) {
         if (task.getMedia().getKind() != MediaKind.VIDEO) {
             holder.bitrateText.setVisibility(View.GONE);
@@ -204,6 +270,11 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         holder.bitrateText.setText(buildVideoBitrateText(task));
     }
 
+    /**
+     * 这个函数用于生成视频任务的码率变化说明文本。
+     * 输入是视频任务对象。
+     * 输出是码率变化描述或 1GB 限制说明。
+     */
     private String buildVideoBitrateText(QueueTask task) {
         if (task.getVideoSettings().isLimitToOneGb() && task.getMedia().getSizeBytes() > ONE_GB_BYTES) {
             return "总文件不超过 1 GB";
@@ -218,6 +289,11 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         return String.format(Locale.getDefault(), "%.1f Mbps -> %.1f Mbps", sourceMbps, outputMbps);
     }
 
+    /**
+     * 这个函数用于生成任务当前压缩档位的文本标签。
+     * 输入是当前 View 和任务对象。
+     * 输出是图片或视频的预设档位名称。
+     */
     private String presetLabel(View view, QueueTask task) {
         if (task.getMedia().getKind() == MediaKind.VIDEO) {
             switch (task.getVideoSettings().getPreset()) {
@@ -238,6 +314,11 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         return view.getContext().getString(R.string.queue_preset_light);
     }
 
+    /**
+     * 这个函数用于把任务状态枚举映射成字符串资源 id。
+     * 输入是任务状态枚举。
+     * 输出是对应的状态文案资源 id。
+     */
     private int statusRes(QueueStatus status) {
         if (status == QueueStatus.RUNNING) {
             return R.string.queue_status_running;
@@ -254,6 +335,11 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         return R.string.queue_status_pending;
     }
 
+    /**
+     * 这个函数用于把任务列表转换成快照列表。
+     * 输入是原始任务列表。
+     * 输出是用于比较刷新差异的 TaskSnapshot 列表。
+     */
     private List<TaskSnapshot> buildSnapshots(List<QueueTask> sourceTasks) {
         List<TaskSnapshot> result = new ArrayList<>();
         for (QueueTask task : sourceTasks) {
@@ -262,6 +348,11 @@ public class QueueTaskAdapter extends RecyclerView.Adapter<QueueTaskAdapter.Task
         return result;
     }
 
+    /**
+     * 这个函数用于判断新旧快照列表的结构是否一致。
+     * 输入是新的任务快照列表。
+     * 输出是条目数量和顺序是否保持一致的布尔值。
+     */
     private boolean hasSameStructure(List<TaskSnapshot> newSnapshots) {
         if (snapshots.size() != newSnapshots.size()) {
             return false;

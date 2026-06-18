@@ -26,6 +26,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * 这个文件是“浏览本地”页面网格列表的适配器，负责把媒体数据和头部状态显示到 RecyclerView。
+ * 输入是媒体列表、头部状态、角标模式、多选状态，以及用户对卡片的点击操作。
+ * 处理过程是创建头部和媒体卡片视图，绑定缩略图、大小、角标、多选框和交互事件。
+ * 输出是浏览页的媒体网格界面，以及和用户交互联动的列表项显示状态。
+ */
 public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public static final int VIEW_TYPE_HEADER = 0;
     public static final int VIEW_TYPE_MEDIA = 1;
@@ -69,11 +75,21 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         VIDEO_BITRATE
     }
 
+    /**
+     * 这个构造函数用于创建媒体网格适配器。
+     * 输入是列表事件监听器。
+     * 输出是一个可绑定到 RecyclerView 的适配器对象。
+     */
     public MediaGridAdapter(Listener listener) {
         this.listener = listener;
         setHasStableIds(true);
     }
 
+    /**
+     * 这个函数用于替换当前网格显示的全部媒体数据。
+     * 输入是新的媒体列表。
+     * 输出是刷新后的网格内容和 Uri 位置索引。
+     */
     public void submitList(List<MediaItemInfo> newItems) {
         items.clear();
         items.addAll(newItems);
@@ -81,6 +97,11 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         notifyDataSetChanged();
     }
 
+    /**
+     * 这个函数用于更新浏览页头部显示状态。
+     * 输入是新的头部状态对象。
+     * 输出是刷新后的头部 UI。
+     */
     public void setHeaderState(HeaderState state) {
         headerState = state;
         if (!bindVisibleHeader()) {
@@ -89,17 +110,32 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     // 选择模式变化时只刷新当前屏幕可见卡片，避免大量媒体列表被整段通知拖慢。
+    /**
+     * 这个函数用于切换列表是否进入多选模式。
+     * 输入是是否开启多选和当前选中的 Uri 集合。
+     * 输出是刷新后的可见卡片多选状态。
+     */
     public void setSelectionMode(boolean selectionMode, Set<String> selectedUris) {
         this.selectionMode = selectionMode;
         this.selectedUris = selectedUris;
         refreshVisibleSelectionItems();
     }
 
+    /**
+     * 这个函数用于设置卡片右上角角标的显示模式。
+     * 输入是角标模式枚举。
+     * 输出是刷新后的全部媒体卡片角标显示。
+     */
     public void setCornerBadgeMode(CornerBadgeMode cornerBadgeMode) {
         this.cornerBadgeMode = cornerBadgeMode;
         notifyDataSetChanged();
     }
 
+    /**
+     * 这个函数用于通知适配器某个媒体项的选中状态发生变化。
+     * 输入是目标媒体的 Uri 字符串。
+     * 输出是刷新后的单个卡片选择态。
+     */
     public void notifySelectionChanged(String uriText) {
         int adapterPosition = adapterPositionForUri(uriText);
         if (adapterPosition < 1) {
@@ -111,12 +147,22 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     @Override
+    /**
+     * 这个函数用于在适配器挂到 RecyclerView 时保存列表引用。
+     * 输入是当前绑定的 RecyclerView。
+     * 输出是后续可直接刷新可见项的 RecyclerView 引用。
+     */
     public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
         super.onAttachedToRecyclerView(recyclerView);
         attachedRecyclerView = recyclerView;
     }
 
     @Override
+    /**
+     * 这个函数用于在适配器从 RecyclerView 分离时清理引用。
+     * 输入是当前解绑的 RecyclerView。
+     * 输出是释放掉已保存的 RecyclerView 引用。
+     */
     public void onDetachedFromRecyclerView(@NonNull RecyclerView recyclerView) {
         super.onDetachedFromRecyclerView(recyclerView);
         if (attachedRecyclerView == recyclerView) {
@@ -125,11 +171,21 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     @Override
+    /**
+     * 这个函数用于判断当前位置应该显示头部还是媒体卡片。
+     * 输入是适配器位置。
+     * 输出是对应的视图类型常量。
+     */
     public int getItemViewType(int position) {
         return position == 0 ? VIEW_TYPE_HEADER : VIEW_TYPE_MEDIA;
     }
 
     @Override
+    /**
+     * 这个函数用于返回列表项的稳定 id。
+     * 输入是适配器位置。
+     * 输出是头部或媒体项对应的唯一 id。
+     */
     public long getItemId(int position) {
         if (position == 0) {
             return Long.MIN_VALUE;
@@ -139,6 +195,11 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
     @NonNull
     @Override
+    /**
+     * 这个函数用于创建头部或媒体卡片的 ViewHolder。
+     * 输入是父容器和视图类型。
+     * 输出是对应类型的 ViewHolder 对象。
+     */
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         LayoutInflater inflater = LayoutInflater.from(parent.getContext());
         if (viewType == VIEW_TYPE_HEADER) {
@@ -150,6 +211,11 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     @Override
+    /**
+     * 这个函数用于完整绑定单个列表项的数据和交互。
+     * 输入是 ViewHolder 和当前位置。
+     * 输出是显示好的头部或媒体卡片。
+     */
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         if (holder instanceof HeaderViewHolder) {
             ((HeaderViewHolder) holder).bind(headerState, listener);
@@ -173,6 +239,11 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     @Override
+    /**
+     * 这个函数用于按 payload 高效刷新列表项的局部状态。
+     * 输入是 ViewHolder、位置和局部更新标记。
+     * 输出是只更新头部或选择态等动态部分。
+     */
     public void onBindViewHolder(
             @NonNull RecyclerView.ViewHolder holder,
             int position,
@@ -193,10 +264,20 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     }
 
     @Override
+    /**
+     * 这个函数用于返回适配器条目总数。
+     * 输入是无。
+     * 输出是头部加媒体项的总数量。
+     */
     public int getItemCount() {
         return items.size() + 1;
     }
 
+    /**
+     * 这个函数用于把图片宽高格式化成兆像素文本。
+     * 输入是图片宽度和高度。
+     * 输出是类似“12MP”的字符串。
+     */
     private String formatMegapixels(int width, int height) {
         if (width <= 0 || height <= 0) {
             return "图片";
@@ -205,6 +286,11 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         return String.format(Locale.getDefault(), "%.0fMP", Math.max(mp, 1.0));
     }
 
+    /**
+     * 这个函数用于把视频时长格式化成分钟秒数字符串。
+     * 输入是毫秒单位的视频时长。
+     * 输出是类似“2:15”的文本。
+     */
     private String formatDuration(long durationMs) {
         long totalSeconds = Math.max(durationMs / 1000L, 0L);
         long minutes = totalSeconds / 60L;
@@ -212,6 +298,11 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         return String.format(Locale.getDefault(), "%d:%02d", minutes, seconds);
     }
 
+    /**
+     * 这个函数用于刷新单个媒体卡片的多选显示状态。
+     * 输入是目标 ViewHolder 和媒体项。
+     * 输出是更新后的勾选框、透明度和无障碍描述。
+     */
     private void updateSelectionUi(MediaViewHolder holder, MediaItemInfo item) {
         boolean selected = selectedUris != null && selectedUris.contains(item.getUri().toString());
         holder.selectionCheckBox.setChecked(selected);
@@ -229,6 +320,11 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         ));
     }
 
+    /**
+     * 这个函数用于绑定媒体卡片右上角的角标内容。
+     * 输入是目标 ViewHolder 和媒体项。
+     * 输出是日期角标、码率角标或隐藏角标。
+     */
     private void bindCornerBadge(MediaViewHolder holder, MediaItemInfo item) {
         if (selectionMode || cornerBadgeMode == CornerBadgeMode.NONE) {
             holder.cornerBadge.setVisibility(View.GONE);
@@ -247,6 +343,11 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         holder.cornerBadge.setVisibility(View.VISIBLE);
     }
 
+    /**
+     * 这个函数用于把时间戳格式化成月/日文本。
+     * 输入是毫秒时间戳。
+     * 输出是类似“6/18”的日期字符串。
+     */
     private String formatMonthDay(long timeMs) {
         if (timeMs <= 0L) {
             return "--/--";
@@ -255,6 +356,11 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         return format.format(new java.util.Date(timeMs));
     }
 
+    /**
+     * 这个函数用于估算并格式化视频平均码率。
+     * 输入是视频媒体项。
+     * 输出是类似“8.2 Mbps”的码率文本。
+     */
     private String formatVideoBitrate(MediaItemInfo item) {
         double mbps = item.getSizeBytes() * 8.0 / (item.getDurationMs() / 1000.0) / 1_000_000.0;
         return String.format(Locale.getDefault(), "%.1f Mbps", mbps);
@@ -298,11 +404,21 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 .start();
     }
 
+    /**
+     * 这个函数用于根据 Uri 查找媒体项在适配器中的位置。
+     * 输入是媒体 Uri 字符串。
+     * 输出是对应的适配器位置；找不到时返回 NO_POSITION。
+     */
     private int adapterPositionForUri(String uriText) {
         Integer position = uriPositions.get(uriText);
         return position == null ? RecyclerView.NO_POSITION : position;
     }
 
+    /**
+     * 这个函数用于重建媒体 Uri 到适配器位置的索引表。
+     * 输入是当前媒体列表。
+     * 输出是更新后的 uriPositions 映射。
+     */
     private void rebuildUriPositions() {
         uriPositions.clear();
         for (int i = 0; i < items.size(); i++) {
@@ -310,6 +426,11 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         }
     }
 
+    /**
+     * 这个函数用于尝试直接刷新当前屏幕上可见的头部项。
+     * 输入是无。
+     * 输出是是否成功直接绑定了可见头部。
+     */
     private boolean bindVisibleHeader() {
         if (attachedRecyclerView == null) {
             return false;
@@ -322,6 +443,11 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         return false;
     }
 
+    /**
+     * 这个函数用于尝试直接刷新当前屏幕上可见的某个媒体项选择状态。
+     * 输入是目标适配器位置。
+     * 输出是是否成功直接绑定了该可见卡片。
+     */
     private boolean bindVisibleSelectionItem(int adapterPosition) {
         if (attachedRecyclerView == null) {
             return false;
@@ -334,6 +460,11 @@ public class MediaGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
         return false;
     }
 
+    /**
+     * 这个函数用于刷新当前屏幕上所有可见媒体项的多选显示状态。
+     * 输入是无。
+     * 输出是最新的可见卡片勾选框和透明度状态。
+     */
     private void refreshVisibleSelectionItems() {
         if (attachedRecyclerView == null) {
             return;
