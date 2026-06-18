@@ -48,36 +48,63 @@ import java.util.concurrent.Executors;
  * 输出是浏览页网格内容、头部状态、固定选择栏，以及提交给队列系统的任务数据。
  */
 
-//浏览本地
+//浏览本地这个页面的主体类
 public class ScanFragment extends Fragment {
+    // 媒体筛选模式：全部、仅图片、仅视频。
     private enum FilterMode { ALL, IMAGE, VIDEO }
+    // 列表排序模式：按大小、按码率、按添加时间。
     private enum SortMode { SIZE, BITRATE, ADDED_TIME }
 
+    // 浏览页媒体网格的列表适配器。
     private MediaGridAdapter mediaAdapter;
+    // 后台扫描系统相册时使用的单线程执行器。
     private ExecutorService scanExecutor;
+    // 负责从 MediaStore 读取图片和视频数据的扫描器。
     private final MediaStoreScanner scanner = new MediaStoreScanner();
+    // 缓存上一次扫描结果，减少重复扫描。
     private final MediaScanCache scanCache = new MediaScanCache();
+    // 当前已经扫描到的全部媒体数据。
     private final List<MediaItemInfo> allItems = new ArrayList<>();
+    // 当前被用户选中的媒体 Uri 集合。
     private final Set<String> selectedUris = new HashSet<>();
+    // 当前页面启用的筛选模式，默认显示全部。
     private FilterMode filterMode = FilterMode.ALL;
+    // 当前页面启用的排序模式，默认按体积排序。
     private SortMode sortMode = SortMode.SIZE;
+    // 当前是否处于多选模式。
     private boolean selectionMode;
+    // 头部区域的主状态文字。
     private String headerStatusText = "";
+    // 头部区域的补充说明文字。
     private String headerDetailText = "";
+    // 头部主操作按钮的显示文字。
     private String headerPrimaryButtonText = "";
+    // 排序按钮当前显示的文字。
     private String headerSortButtonText = "";
+    // 头部显示的媒体数量文字。
     private String headerMediaCountText = "";
+    // 头部扫描进度百分比。
     private int headerProgress = 0;
+    // 头部“完成”状态相关控件是否显示。
     private boolean headerDoneVisible;
+    // 头部主按钮当前是否允许点击。
     private boolean headerPrimaryEnabled;
+    // 头部筛选、排序、选择等控件当前是否允许点击。
     private boolean headerControlsEnabled;
+    // 页面顶部固定标题栏。
     private View fixedTitleBar;
+    // 进入多选模式的按钮。
     private Button fixedSelectButton;
+    // 多选模式下显示的固定操作栏。
     private View fixedSelectionBar;
+    // 批量加入压缩队列的按钮。
     private Button fixedCompressButton;
+    // 批量加入回收队列的按钮。
     private Button fixedDeleteButton;
+    // 退出多选模式的完成按钮。
     private Button fixedDoneButton;
 
+    // 系统媒体读取权限的请求发起器。
     private final ActivityResultLauncher<String[]> permissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), this::onPermissionResult);
     /**
